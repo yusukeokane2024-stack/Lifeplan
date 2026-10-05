@@ -1,6 +1,7 @@
 const DEFAULTS = {
   age: 30, retireAge: 65, pensionAge: 65, endAge: 95,
-  income: 450, raise: 1, pension: 180, severance: 1500,
+  income: 450, raise: 1, severance: 1500,
+  pensionMode: "auto", job: "employee", startAge: 22, avgGross: 600, pension: 180,
   livingItems: [
     { name: "食費", monthly: 6 }, { name: "水道光熱費", monthly: 2 }, { name: "通信費", monthly: 1 },
     { name: "日用品", monthly: 1 }, { name: "被服・美容", monthly: 1 }, { name: "交際・娯楽", monthly: 3 },
@@ -9,7 +10,8 @@ const DEFAULTS = {
   retireLivingRatio: 80, inflation: 1,
   assets: [{ name: "預貯金", amount: 200, rate: 0.1 }, { name: "投資信託・株式", amount: 100, rate: 4 }],
   debts: [],
-  spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, pension: 120, severance: 800 },
+  spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, severance: 800,
+    pensionMode: "auto", job: "employee", startAge: 22, avgGross: 400, pension: 120 },
   childCost: 80,
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30 },
@@ -24,6 +26,9 @@ function merge(s) {
   const d = structuredClone(DEFAULTS);
   if (!s || typeof s !== "object") return d;
   const out = { ...d, ...s, spouse: { ...d.spouse, ...s.spouse }, housing: { ...d.housing, ...s.housing } };
+  // 旧形式(年金額を手入力のみ)からの移行: 保存済みの年金額があれば手入力のままにする
+  if (!s.pensionMode && typeof s.pension === "number") out.pensionMode = "manual";
+  if (s.spouse && !s.spouse.pensionMode && typeof s.spouse.pension === "number") out.spouse.pensionMode = "manual";
   // 旧形式(savings 1項目)からの移行
   if (!Array.isArray(s.assets)) out.assets = typeof s.savings === "number" ? [{ name: "貯蓄", amount: s.savings, rate: s.returnRate ?? 2 }] : d.assets;
   // 旧形式(年間生活費 living)からの移行
@@ -165,6 +170,15 @@ function update() {
   renderLists(); renderCards(result); renderChart(result.rows); renderTable(result.rows);
   $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円 / 加重平均利回り ${result.returnRate.toFixed(2)}%` +
     (result.debtTotal ? ` / ローン残高合計 ${fmt(result.debtTotal)}万円(純資産 ${fmt(result.assetTotal - result.debtTotal)}万円)` : "");
+  for (const [key, person, est] of [["Me", state, result.myPension], ["Sp", state.spouse, result.spousePension]]) {
+    const auto = person.pensionMode !== "manual";
+    $("auto" + key).style.display = auto && person.job === "employee" ? "" : "none";
+    $("manual" + key).style.display = auto ? "none" : "";
+    $("pensionInfo" + key).textContent = auto
+      ? `見積額: 年${est.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円(月${(est / 12).toFixed(1)}万円)。` +
+        (person.job === "employee" ? "" : "働き方が会社員・公務員以外のため、国民年金(基礎年金)のみの見積もりです。")
+      : "";
+  }
   document.getElementById("buyFields").style.display = state.housing.type === "buy" ? "" : "none";
   const h = state.housing;
   $("loanInfo").textContent = h.type === "buy"

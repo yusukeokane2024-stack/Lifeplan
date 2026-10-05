@@ -26,11 +26,33 @@
     return r === 0 ? loan / years : (loan * r) / (1 - Math.pow(1 + r, -years));
   }
 
+  // 公的年金の概算(年額・万円)。令和7年度の満額・乗率をもとにした目安で、物価・賃金スライドや加給年金等は含まない。
+  const BASIC_FULL = 83.1;      // 老齢基礎年金(満額・40年加入)
+  const KOUSEI_RATE = 0.005481; // 老齢厚生年金の乗率(平均標準報酬額 × 乗率 × 加入月数)
+  function estimatePension(o) {
+    // o: { job: "employee" | "self" | "none", startAge, avgGross, retireAge, pensionAge }
+    let total = BASIC_FULL; // 20〜60歳の40年間、保険料を納付した(または第3号)前提
+    if (o.job === "employee") {
+      const months = Math.max(0, (Math.min(o.retireAge, 70) - o.startAge) * 12);
+      const avgMonthly = Math.min(o.avgGross / 12, 100); // 標準報酬(賞与込み)の上限をざっくり反映
+      total += avgMonthly * KOUSEI_RATE * months;
+    }
+    // 繰上げ: 1か月あたり-0.4%(最大60か月) / 繰下げ: 1か月あたり+0.7%(最大120か月)
+    const diff = Math.max(60, Math.min(75, o.pensionAge)) - 65;
+    total *= diff < 0 ? 1 + 0.004 * diff * 12 : 1 + 0.007 * diff * 12;
+    return Math.round(total * 10) / 10;
+  }
+  function pensionOf(person) {
+    return person.pensionMode === "manual" ? person.pension : estimatePension(person);
+  }
+
   function simulate(p) {
     const sp = p.spouse && p.spouse.enabled ? p.spouse : null;
     const h = p.housing;
     const buying = h.type === "buy";
     const payment = buying ? annualPayment(h.price - h.down, h.rate, h.years) : 0;
+    const myPension = pensionOf(p);
+    const spousePension = sp ? pensionOf(sp) : 0;
     const rows = [];
     // 現在の資産(内訳があれば合計、なければ savings)と、その加重平均利回り
     const assets = Array.isArray(p.assets) ? p.assets : null;
@@ -49,13 +71,13 @@
       const infl = Math.pow(1 + p.inflation / 100, n);
 
       const salary = working ? p.income * raiseF : 0;
-      let pension = age >= p.pensionAge ? p.pension : 0;
+      let pension = age >= p.pensionAge ? myPension : 0;
       let severance = age === p.retireAge ? p.severance : 0;
       let spouseSalary = 0, spouseAge = null;
       if (sp) {
         spouseAge = sp.age + n;
         if (spouseAge < sp.retireAge) spouseSalary = sp.income * Math.pow(1 + sp.raise / 100, n);
-        if (spouseAge >= sp.pensionAge) pension += sp.pension;
+        if (spouseAge >= sp.pensionAge) pension += spousePension;
         if (spouseAge === sp.retireAge) severance += sp.severance;
       }
 
@@ -98,14 +120,14 @@
     }
     const atRetire = rows.find(r => r.age === p.retireAge);
     return {
-      rows, depletedAge, assetTotal, returnRate,
+      rows, depletedAge, assetTotal, returnRate, myPension, spousePension,
       debtTotal: debts.reduce((s, d) => s + d.balance, 0),
       retireBalance: atRetire ? atRetire.balance : null,
       finalBalance: rows[rows.length - 1].balance,
     };
   }
 
-  const api = { simulate, EDU_COURSES, annualPayment, eduCost };
+  const api = { simulate, estimatePension, EDU_COURSES, annualPayment, eduCost };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);
