@@ -52,6 +52,8 @@
     const sp = p.spouse && p.spouse.enabled ? p.spouse : null;
     const h = p.housing;
     const buying = h.type === "buy";
+    const owning = h.type === "own";
+    const ownPayment = owning ? annualPayment(h.ownLoan, h.ownRate, h.ownYears) : 0;
     const payment = buying ? annualPayment(h.price - h.down, h.rate, h.years) : 0;
     const myPension = pensionOf(p);
     const spousePension = sp ? pensionOf(sp) : 0;
@@ -86,7 +88,11 @@
       const living = (working ? p.living : p.living * (p.retireLivingRatio / 100)) * infl;
 
       let housing = 0;
-      if (!buying || age < h.buyAge) {
+      if (owning) {
+        // 持ち家(購入済み): 残りのローン返済 + 管理費・修繕積立金 + 固定資産税 + 修繕費
+        if (n < h.ownYears) housing += ownPayment;
+        housing += (h.ownMgmt * 12 + h.ownTax + h.ownRepair) * infl;
+      } else if (!buying || age < h.buyAge) {
         housing = h.rent;
       } else {
         if (age < h.buyAge + h.years) housing += payment;

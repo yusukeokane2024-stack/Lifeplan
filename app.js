@@ -14,7 +14,8 @@ const DEFAULTS = {
     pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
   childCost: 80,
   children: [],
-  housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30 },
+  housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
+    ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
 };
 const KEY = "lifeplan.v2";
@@ -181,10 +182,15 @@ function update() {
         : "働き方が会社員・公務員以外のため、国民年金(基礎年金)のみの見積もりです。")
       : "";
   }
-  document.getElementById("buyFields").style.display = state.housing.type === "buy" ? "" : "none";
+  const ht = state.housing.type;
+  $("buyFields").style.display = ht === "buy" ? "" : "none";
+  $("ownFields").style.display = ht === "own" ? "" : "none";
+  $("rentLabel").style.display = ht === "own" ? "none" : "";
   const h = state.housing;
   $("loanInfo").textContent = h.type === "buy"
-    ? `借入額 ${fmt(h.price - h.down)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(h.price - h.down, h.rate, h.years))}万円` : "";
+    ? `借入額 ${fmt(h.price - h.down)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(h.price - h.down, h.rate, h.years))}万円`
+    : h.type === "own"
+      ? `年間返済額 約${fmt(LifePlan.annualPayment(h.ownLoan, h.ownRate, h.ownYears))}万円(${h.ownYears}年間) / 返済後の年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円` : "";
   save();
 }
 

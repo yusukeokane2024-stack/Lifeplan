@@ -112,8 +112,16 @@
 
     <details><summary>住居</summary>
       <div class="grid">
-        <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option></select></label>
-        <label>家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
+        <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
+        <label id="rentLabel">家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
+      </div>
+      <div class="grid" id="ownFields">
+        <label>住宅ローン残高<input type="number" data-k="housing.ownLoan" step="100"></label>
+        <label>ローン金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
+        <label>ローン残り年数<input type="number" data-k="housing.ownYears" min="0" max="50"></label>
+        <label>管理費・修繕積立金(月額・戸建ては0)<input type="number" data-k="housing.ownMgmt" step="0.5"></label>
+        <label>固定資産税・都市計画税(年額)<input type="number" data-k="housing.ownTax" step="1"></label>
+        <label>修繕・メンテナンス費(年額の平均)<input type="number" data-k="housing.ownRepair" step="5"></label>
       </div>
       <div class="grid" id="buyFields">
         <label>購入年齢<input type="number" data-k="housing.buyAge" min="0" max="100"></label>
