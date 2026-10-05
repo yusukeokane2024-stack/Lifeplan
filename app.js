@@ -75,7 +75,7 @@ function renderCards(r) {
   $("cards").innerHTML =
     card("退職時の資産", r.retireBalance === null ? "-" : fmt(r.retireBalance) + "万円", r.retireBalance < 0 ? "bad" : "") +
     card("最終資産", fmt(r.finalBalance) + "万円", r.finalBalance < 0 ? "bad" : "good") +
-    card("資産が尽きる年齢", r.depletedAge === null ? "尽きない" : r.depletedAge + "歳", r.depletedAge === null ? "good" : "bad");
+    card("資産枯渇年齢", r.depletedAge === null ? "尽きない" : r.depletedAge + "歳", r.depletedAge === null ? "good" : "bad");
 }
 
 function renderChart(rows) {
@@ -170,7 +170,8 @@ $("eventForm").addEventListener("submit", ev => {
 });
 $("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); update(); } };
 $("exportCsv").onclick = () => download("lifeplan-cashflow.csv", toCsv(result.rows), "text/csv;charset=utf-8");
-$("print").onclick = () => window.print();
+$("print").onclick = () => { $("tableBox").open = true; window.print(); };
+if (matchMedia("(max-width:800px)").matches) $("tableBox").open = false; // スマホでは表を折りたたんで開始
 $("exportJson").onclick = () => download("lifeplan-data.json", JSON.stringify(state, null, 2), "application/json");
 $("importJson").onclick = () => $("importFile").click();
 $("importFile").onchange = async ev => {

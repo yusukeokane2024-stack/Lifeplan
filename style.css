@@ -57,3 +57,29 @@ th.grp{text-align:center;border-bottom:0}
 #assetList button,#debtList button{background:transparent;color:var(--bad);padding:2px 8px}
 .item-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
 .item-form input:first-child{grid-column:1/3}.item-form button{grid-column:1/3}
+
+.panel{min-width:0}
+.table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:800px){
+  header{padding:14px 12px 0}
+  main{grid-template-columns:minmax(0,1fr);padding:12px}
+  #results{order:-1}
+  .panel{padding:12px}
+  input,select{font-size:16px}
+  .event-form{grid-template-columns:1fr 1fr}
+  .event-form input:first-child,.event-form button{grid-column:1/3}
+  .actions button{flex:1 1 auto}
+  .card strong{font-size:1.1rem}
+  .cards{grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .card{padding:8px}
+}
+@media print{#tableBox>summary{display:none}}
+.grid,.item-form,.child-form,.event-form{min-width:0}
+.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+label{min-width:0}
+input,select{width:100%}
+label.check input{width:auto}
+.item-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.child-form{grid-template-columns:minmax(0,1fr) 80px}
+.event-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto}
+@media(max-width:800px){.event-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
