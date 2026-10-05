@@ -1,0 +1,30 @@
+:root{--bg:#f5f7fa;--fg:#1f2933;--panel:#fff;--accent:#2f6fed;--bad:#d64545;--good:#1f9d6b;--line:#d9e0e8}
+@media (prefers-color-scheme:dark){:root{--bg:#161a20;--fg:#e6eaf0;--panel:#1f252d;--accent:#6b9bff;--bad:#ff7b7b;--good:#4fd0a0;--line:#37404b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,"Hiragino Sans","Noto Sans JP",sans-serif}
+header{padding:20px 16px 0;max-width:1100px;margin:auto}
+header h1{margin:0;font-size:1.5rem}header p{margin:4px 0 0;opacity:.7}
+main{display:grid;gap:16px;padding:16px;max-width:1100px;margin:auto;grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h2{font-size:1.05rem;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+label{display:flex;flex-direction:column;font-size:.8rem;gap:3px}
+input{padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;min-width:0}
+button{padding:7px 14px;border:0;border-radius:6px;background:var(--accent);color:#fff;font:inherit;cursor:pointer}
+button.secondary{background:transparent;color:var(--fg);border:1px solid var(--line);margin-top:14px}
+.hint{font-size:.8rem;opacity:.7;margin:0 0 8px}
+#eventList{list-style:none;padding:0;margin:0 0 8px}
+#eventList li{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+#eventList button{background:transparent;color:var(--bad);padding:2px 8px}
+.event-form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.card{border:1px solid var(--line);border-radius:8px;padding:10px}
+.card small{opacity:.7}.card strong{display:block;font-size:1.25rem}
+.bad{color:var(--bad)}.good{color:var(--good)}
+#chart svg{width:100%;height:auto;display:block}
+.table-wrap{overflow:auto;max-height:380px;margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:.8rem;white-space:nowrap}
+th,td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child,td:last-child,th:last-child{text-align:left}
+th{position:sticky;top:0;background:var(--panel)}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ライフプランシミュレーター</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>ライフプランシミュレーター</h1><p>金額の単位は万円です。入力はこのブラウザに自動保存されます。</p></header>
+<main>
+  <section class="panel" id="inputs">
+    <h2>基本設定</h2>
+    <div class="grid">
+      <label>現在の年齢<input type="number" id="age" min="0" max="100"></label>
+      <label>退職年齢<input type="number" id="retireAge" min="0" max="100"></label>
+      <label>年金受給開始年齢<input type="number" id="pensionAge" min="0" max="100"></label>
+      <label>シミュレーション終了年齢<input type="number" id="endAge" min="0" max="120"></label>
+      <label>現在の貯蓄<input type="number" id="savings" step="10"></label>
+      <label>年間手取り収入<input type="number" id="income" step="10"></label>
+      <label>昇給率 (%/年)<input type="number" id="raise" step="0.1"></label>
+      <label>年間生活費<input type="number" id="living" step="10"></label>
+      <label>退職後の生活費比率 (%)<input type="number" id="retireLivingRatio" step="5"></label>
+      <label>物価上昇率 (%/年)<input type="number" id="inflation" step="0.1"></label>
+      <label>運用利回り (%/年)<input type="number" id="returnRate" step="0.1"></label>
+      <label>年金額 (年間)<input type="number" id="pension" step="10"></label>
+      <label>退職金<input type="number" id="severance" step="50"></label>
+    </div>
+    <h2>ライフイベント</h2>
+    <p class="hint">支出は正の数、収入(相続など)は負の数で入力します。</p>
+    <ul id="eventList"></ul>
+    <form id="eventForm" class="event-form">
+      <input id="evName" placeholder="例: 住宅購入" required>
+      <input id="evAge" type="number" placeholder="年齢" min="0" max="120" required>
+      <input id="evAmount" type="number" placeholder="金額(万円)" required>
+      <button>追加</button>
+    </form>
+    <button type="button" id="reset" class="secondary">初期値に戻す</button>
+  </section>
+
+  <section class="panel" id="results">
+    <h2>結果</h2>
+    <div class="cards" id="cards"></div>
+    <div id="chart" role="img" aria-label="年齢ごとの資産残高の推移グラフ"></div>
+    <details><summary>年別の収支表</summary>
+      <div class="table-wrap"><table id="table"></table></div>
+    </details>
+  </section>
+</main>
+<script src="calc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
