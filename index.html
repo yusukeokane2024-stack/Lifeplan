@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ライフプランシミュレーター</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6fed">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ライフプラン">
 </head>
 <body>
 <header><h1>ライフプランシミュレーター</h1><p>金額の単位は万円です。入力はこのブラウザに自動保存されます。</p></header>
@@ -49,5 +55,6 @@
 </main>
 <script src="calc.js"></script>
 <script src="app.js"></script>
+<script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>
