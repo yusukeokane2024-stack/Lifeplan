@@ -29,9 +29,15 @@
       </div>
     </details>
 
+    <details open><summary>生活費(月額)</summary>
+      <p class="hint">毎月かかる生活費を項目ごとに入力します(万円/月)。住居費・子ども費用・ローン返済は別に入力するので含めないでください。年額は自動で計算されます。</p>
+      <div id="livingRows"></div>
+      <button type="button" id="addLiving" class="secondary">+ 項目を追加</button>
+      <p class="living-total" id="livingTotal"></p>
+    </details>
+
     <details open><summary>家計・運用</summary>
       <div class="grid">
-        <label>年間生活費(住居費・子ども費用を除く)<input type="number" data-k="living" step="10"></label>
         <label>退職後の生活費比率 (%)<input type="number" data-k="retireLivingRatio" step="5"></label>
         <label>物価上昇率 (%/年)<input type="number" data-k="inflation" step="0.1"></label>
       </div>

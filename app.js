@@ -1,7 +1,12 @@
 const DEFAULTS = {
   age: 30, retireAge: 65, pensionAge: 65, endAge: 95,
   income: 450, raise: 1, pension: 180, severance: 1500,
-  living: 200, retireLivingRatio: 80, inflation: 1,
+  livingItems: [
+    { name: "食費", monthly: 6 }, { name: "水道光熱費", monthly: 2 }, { name: "通信費", monthly: 1 },
+    { name: "日用品", monthly: 1 }, { name: "被服・美容", monthly: 1 }, { name: "交際・娯楽", monthly: 3 },
+    { name: "保険・医療", monthly: 2 }, { name: "その他", monthly: 1 },
+  ],
+  retireLivingRatio: 80, inflation: 1,
   assets: [{ name: "預貯金", amount: 200, rate: 0.1 }, { name: "投資信託・株式", amount: 100, rate: 4 }],
   debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, pension: 120, severance: 800 },
@@ -21,6 +26,8 @@ function merge(s) {
   const out = { ...d, ...s, spouse: { ...d.spouse, ...s.spouse }, housing: { ...d.housing, ...s.housing } };
   // 旧形式(savings 1項目)からの移行
   if (!Array.isArray(s.assets)) out.assets = typeof s.savings === "number" ? [{ name: "貯蓄", amount: s.savings, rate: s.returnRate ?? 2 }] : d.assets;
+  // 旧形式(年間生活費 living)からの移行
+  if (!Array.isArray(s.livingItems)) out.livingItems = typeof s.living === "number" ? [{ name: "生活費", monthly: Math.round(s.living / 12 * 10) / 10 }] : d.livingItems;
   out.debts = Array.isArray(s.debts) ? s.debts : [];
   out.children = Array.isArray(s.children) ? s.children : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
@@ -53,6 +60,23 @@ function removable(ul, items, text, onRemove) {
     const b = document.createElement("button"); b.type = "button"; b.textContent = "削除";
     b.onclick = () => onRemove(i);
     li.append(span, b); ul.append(li);
+  });
+}
+
+// 生活費の項目行。入力中のフォーカスを保つため、追加・削除時だけ作り直す。
+function renderLiving() {
+  const box = $("livingRows");
+  box.innerHTML = "";
+  state.livingItems.forEach((it, i) => {
+    const row = document.createElement("div"); row.className = "living-row";
+    const name = document.createElement("input"); name.value = it.name; name.placeholder = "項目名";
+    name.oninput = () => { it.name = name.value; save(); };
+    const amt = document.createElement("input"); amt.type = "number"; amt.inputMode = "decimal"; amt.step = "0.1"; amt.min = "0";
+    amt.value = it.monthly; amt.setAttribute("aria-label", it.name + "の月額(万円)");
+    amt.oninput = () => { it.monthly = parseFloat(amt.value) || 0; update(); };
+    const del = document.createElement("button"); del.type = "button"; del.textContent = "削除";
+    del.onclick = () => { state.livingItems.splice(i, 1); renderLiving(); update(); };
+    row.append(name, amt, del); box.append(row);
   });
 }
 
@@ -135,6 +159,8 @@ function toCsv(rows) {
 let result;
 function update() {
   if (state.endAge < state.age) state.endAge = state.age;
+  state.living = state.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
+  $("livingTotal").textContent = `月額合計 ${(state.living / 12).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円 / 年額 ${fmt(state.living)}万円`;
   result = LifePlan.simulate(state);
   renderLists(); renderCards(result); renderChart(result.rows); renderTable(result.rows);
   $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円 / 加重平均利回り ${result.returnRate.toFixed(2)}%` +
@@ -153,6 +179,10 @@ $("childForm").addEventListener("submit", ev => {
   state.children.push({ name: $("chName").value.trim(), age: parseInt($("chAge").value, 10), course: $("chCourse").value });
   ev.target.reset(); update();
 });
+$("addLiving").onclick = () => {
+  state.livingItems.push({ name: "", monthly: 0 }); renderLiving(); update();
+  const names = $("livingRows").querySelectorAll("input:not([type])"); names[names.length - 1].focus();
+};
 $("assetForm").addEventListener("submit", ev => {
   ev.preventDefault();
   state.assets.push({ name: $("asName").value.trim(), amount: parseFloat($("asAmount").value), rate: parseFloat($("asRate").value) });
@@ -168,7 +198,7 @@ $("eventForm").addEventListener("submit", ev => {
   state.events.push({ name: $("evName").value.trim(), age: parseInt($("evAge").value, 10), amount: parseFloat($("evAmount").value) });
   ev.target.reset(); update();
 });
-$("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); update(); } };
+$("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); renderLiving(); update(); } };
 $("exportCsv").onclick = () => download("lifeplan-cashflow.csv", toCsv(result.rows), "text/csv;charset=utf-8");
 $("print").onclick = () => { $("tableBox").open = true; window.print(); };
 if (matchMedia("(max-width:800px)").matches) $("tableBox").open = false; // スマホでは表を折りたたんで開始
@@ -176,7 +206,7 @@ $("exportJson").onclick = () => download("lifeplan-data.json", JSON.stringify(st
 $("importJson").onclick = () => $("importFile").click();
 $("importFile").onchange = async ev => {
   const f = ev.target.files[0]; if (!f) return;
-  try { state = merge(JSON.parse(await f.text())); writeInputs(); update(); }
+  try { state = merge(JSON.parse(await f.text())); writeInputs(); renderLiving(); update(); }
   catch (e) { alert("読み込めませんでした。保存したJSONファイルを選んでください。"); }
   ev.target.value = "";
 };
@@ -188,4 +218,4 @@ document.querySelectorAll('input[type="number"]').forEach(el => {
   el.inputMode = /\./.test(el.step) ? "decimal" : "numeric";
 });
 
-writeInputs(); update();
+writeInputs(); renderLiving(); update();

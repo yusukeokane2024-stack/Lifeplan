@@ -83,3 +83,7 @@ label.check input{width:auto}
 .child-form{grid-template-columns:minmax(0,1fr) 80px}
 .event-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto}
 @media(max-width:800px){.event-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+
+.living-row{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:6px;margin-bottom:6px;align-items:center}
+.living-row button{background:transparent;color:var(--bad);padding:2px 8px}
+.living-total{font-weight:600;margin:10px 0 0}
