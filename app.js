@@ -1,7 +1,9 @@
 const DEFAULTS = {
   age: 30, retireAge: 65, pensionAge: 65, endAge: 95,
-  savings: 300, income: 450, raise: 1, pension: 180, severance: 1500,
-  living: 200, retireLivingRatio: 80, inflation: 1, returnRate: 2,
+  income: 450, raise: 1, pension: 180, severance: 1500,
+  living: 200, retireLivingRatio: 80, inflation: 1,
+  assets: [{ name: "預貯金", amount: 200, rate: 0.1 }, { name: "投資信託・株式", amount: 100, rate: 4 }],
+  debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, pension: 120, severance: 800 },
   childCost: 80,
   children: [],
@@ -17,6 +19,9 @@ function merge(s) {
   const d = structuredClone(DEFAULTS);
   if (!s || typeof s !== "object") return d;
   const out = { ...d, ...s, spouse: { ...d.spouse, ...s.spouse }, housing: { ...d.housing, ...s.housing } };
+  // 旧形式(savings 1項目)からの移行
+  if (!Array.isArray(s.assets)) out.assets = typeof s.savings === "number" ? [{ name: "貯蓄", amount: s.savings, rate: s.returnRate ?? 2 }] : d.assets;
+  out.debts = Array.isArray(s.debts) ? s.debts : [];
   out.children = Array.isArray(s.children) ? s.children : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
   return out;
@@ -56,6 +61,10 @@ function renderLists() {
   removable($("eventList"), state.events,
     e => `${e.age}歳 ${e.name}: ${e.amount >= 0 ? "-" : "+"}${fmt(Math.abs(e.amount))}万円`,
     i => { state.events.splice(i, 1); update(); });
+  removable($("assetList"), state.assets,
+    a => `${a.name}: ${fmt(a.amount)}万円(利回り ${a.rate}%)`, i => { state.assets.splice(i, 1); update(); });
+  removable($("debtList"), state.debts,
+    d => `ローン ${d.name}: 残高${fmt(d.balance)}万円 / 金利${d.rate}% / 残り${d.years}年`, i => { state.debts.splice(i, 1); update(); });
   removable($("childList"), state.children,
     c => `${c.name}(${c.age < 0 ? -c.age + "年後に誕生" : c.age + "歳"}) ${LifePlan.EDU_COURSES[c.course].label}`,
     i => { state.children.splice(i, 1); update(); });
@@ -96,7 +105,7 @@ const COLS = [
   ["年齢", r => r.age], ["配偶者年齢", r => r.spouseAge ?? ""],
   ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金", r => r.pension],
   ["退職金", r => r.severance], ["運用益", r => r.invest], ["収入合計", r => r.incomeTotal],
-  ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child],
+  ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
   ["イベント等", r => r.eventCost], ["支出合計", r => r.outgoTotal],
   ["年間収支", r => r.net], ["資産残高", r => r.balance], ["イベント名", r => r.eventNames],
 ];
@@ -128,6 +137,8 @@ function update() {
   if (state.endAge < state.age) state.endAge = state.age;
   result = LifePlan.simulate(state);
   renderLists(); renderCards(result); renderChart(result.rows); renderTable(result.rows);
+  $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円 / 加重平均利回り ${result.returnRate.toFixed(2)}%` +
+    (result.debtTotal ? ` / ローン残高合計 ${fmt(result.debtTotal)}万円(純資産 ${fmt(result.assetTotal - result.debtTotal)}万円)` : "");
   document.getElementById("buyFields").style.display = state.housing.type === "buy" ? "" : "none";
   const h = state.housing;
   $("loanInfo").textContent = h.type === "buy"
@@ -140,6 +151,16 @@ $("chCourse").innerHTML = Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => `
 $("childForm").addEventListener("submit", ev => {
   ev.preventDefault();
   state.children.push({ name: $("chName").value.trim(), age: parseInt($("chAge").value, 10), course: $("chCourse").value });
+  ev.target.reset(); update();
+});
+$("assetForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  state.assets.push({ name: $("asName").value.trim(), amount: parseFloat($("asAmount").value), rate: parseFloat($("asRate").value) });
+  ev.target.reset(); update();
+});
+$("debtForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  state.debts.push({ name: $("dbName").value.trim(), balance: parseFloat($("dbBalance").value), rate: parseFloat($("dbRate").value), years: parseInt($("dbYears").value, 10) });
   ev.target.reset(); update();
 });
 $("eventForm").addEventListener("submit", ev => {

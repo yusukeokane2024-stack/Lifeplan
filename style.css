@@ -52,3 +52,8 @@ th.grp{text-align:center;border-bottom:0}
   table{font-size:9px}
   :root{--panel:#fff;--line:#bbb;--fg:#000}
 }
+#assetList,#debtList{list-style:none;padding:0;margin:0 0 8px}
+#assetList li,#debtList li{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+#assetList button,#debtList button{background:transparent;color:var(--bad);padding:2px 8px}
+.item-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.item-form input:first-child{grid-column:1/3}.item-form button{grid-column:1/3}

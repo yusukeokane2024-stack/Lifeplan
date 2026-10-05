@@ -32,7 +32,14 @@
     const buying = h.type === "buy";
     const payment = buying ? annualPayment(h.price - h.down, h.rate, h.years) : 0;
     const rows = [];
-    let balance = p.savings;
+    // 現在の資産(内訳があれば合計、なければ savings)と、その加重平均利回り
+    const assets = Array.isArray(p.assets) ? p.assets : null;
+    const assetTotal = assets ? assets.reduce((s, a) => s + a.amount, 0) : p.savings;
+    const returnRate = assets && assetTotal > 0
+      ? assets.reduce((s, a) => s + a.amount * a.rate, 0) / assetTotal
+      : p.returnRate;
+    const debts = Array.isArray(p.debts) ? p.debts : [];
+    let balance = assetTotal;
     let depletedAge = null;
 
     for (let age = p.age; age <= p.endAge; age++) {
@@ -70,11 +77,14 @@
         child += eduCost(c.course, ca) * infl;
       }
 
+      let debt = 0;
+      for (const d of debts) if (n < d.years) debt += annualPayment(d.balance, d.rate, d.years);
+
       const events = p.events.filter(e => e.age === age);
       const eventCost = events.reduce((s, e) => s + e.amount, 0) + housingOnce;
-      const invest = balance > 0 ? balance * (p.returnRate / 100) : 0;
+      const invest = balance > 0 ? balance * (returnRate / 100) : 0;
       const incomeTotal = salary + spouseSalary + pension + severance + invest;
-      const outgoTotal = living + housing + child + eventCost;
+      const outgoTotal = living + housing + child + debt + eventCost;
       balance = balance + incomeTotal - outgoTotal;
       if (balance < 0 && depletedAge === null) depletedAge = age;
 
@@ -82,13 +92,14 @@
       if (housingOnce) names.push("住宅購入");
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest,
-        incomeTotal, living, housing, child, eventCost, outgoTotal,
+        incomeTotal, living, housing, child, debt, eventCost, outgoTotal,
         net: incomeTotal - outgoTotal, balance, eventNames: names.join("、"),
       });
     }
     const atRetire = rows.find(r => r.age === p.retireAge);
     return {
-      rows, depletedAge,
+      rows, depletedAge, assetTotal, returnRate,
+      debtTotal: debts.reduce((s, d) => s + d.balance, 0),
       retireBalance: atRetire ? atRetire.balance : null,
       finalBalance: rows[rows.length - 1].balance,
     };
