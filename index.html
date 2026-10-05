@@ -16,41 +16,101 @@
 <header><h1>ライフプランシミュレーター</h1><p>金額の単位は万円です。入力はこのブラウザに自動保存されます。</p></header>
 <main>
   <section class="panel" id="inputs">
-    <h2>基本設定</h2>
-    <div class="grid">
-      <label>現在の年齢<input type="number" id="age" min="0" max="100"></label>
-      <label>退職年齢<input type="number" id="retireAge" min="0" max="100"></label>
-      <label>年金受給開始年齢<input type="number" id="pensionAge" min="0" max="100"></label>
-      <label>シミュレーション終了年齢<input type="number" id="endAge" min="0" max="120"></label>
-      <label>現在の貯蓄<input type="number" id="savings" step="10"></label>
-      <label>年間手取り収入<input type="number" id="income" step="10"></label>
-      <label>昇給率 (%/年)<input type="number" id="raise" step="0.1"></label>
-      <label>年間生活費<input type="number" id="living" step="10"></label>
-      <label>退職後の生活費比率 (%)<input type="number" id="retireLivingRatio" step="5"></label>
-      <label>物価上昇率 (%/年)<input type="number" id="inflation" step="0.1"></label>
-      <label>運用利回り (%/年)<input type="number" id="returnRate" step="0.1"></label>
-      <label>年金額 (年間)<input type="number" id="pension" step="10"></label>
-      <label>退職金<input type="number" id="severance" step="50"></label>
+    <details open><summary>本人・基本設定</summary>
+      <div class="grid">
+        <label>現在の年齢<input type="number" data-k="age" min="0" max="100"></label>
+        <label>退職年齢<input type="number" data-k="retireAge" min="0" max="100"></label>
+        <label>年金受給開始年齢<input type="number" data-k="pensionAge" min="0" max="100"></label>
+        <label>シミュレーション終了年齢<input type="number" data-k="endAge" min="0" max="120"></label>
+        <label>現在の貯蓄<input type="number" data-k="savings" step="10"></label>
+        <label>年間手取り収入<input type="number" data-k="income" step="10"></label>
+        <label>昇給率 (%/年)<input type="number" data-k="raise" step="0.1"></label>
+        <label>年金額 (年間)<input type="number" data-k="pension" step="10"></label>
+        <label>退職金<input type="number" data-k="severance" step="50"></label>
+      </div>
+    </details>
+
+    <details open><summary>家計・運用</summary>
+      <div class="grid">
+        <label>年間生活費(住居費・子ども費用を除く)<input type="number" data-k="living" step="10"></label>
+        <label>退職後の生活費比率 (%)<input type="number" data-k="retireLivingRatio" step="5"></label>
+        <label>物価上昇率 (%/年)<input type="number" data-k="inflation" step="0.1"></label>
+        <label>運用利回り (%/年)<input type="number" data-k="returnRate" step="0.1"></label>
+      </div>
+    </details>
+
+    <details><summary>配偶者</summary>
+      <label class="check"><input type="checkbox" data-k="spouse.enabled"> 配偶者を含める</label>
+      <div class="grid">
+        <label>配偶者の現在の年齢<input type="number" data-k="spouse.age" min="0" max="100"></label>
+        <label>年間手取り収入<input type="number" data-k="spouse.income" step="10"></label>
+        <label>昇給率 (%/年)<input type="number" data-k="spouse.raise" step="0.1"></label>
+        <label>退職年齢<input type="number" data-k="spouse.retireAge" min="0" max="100"></label>
+        <label>年金受給開始年齢<input type="number" data-k="spouse.pensionAge" min="0" max="100"></label>
+        <label>年金額 (年間)<input type="number" data-k="spouse.pension" step="10"></label>
+        <label>退職金<input type="number" data-k="spouse.severance" step="50"></label>
+      </div>
+    </details>
+
+    <details><summary>子ども</summary>
+      <p class="hint">年齢は現在の年齢です。これから生まれる場合は負の数(例: -2 = 2年後に誕生)。学費は目安の平均値で、養育費は下の金額で調整できます。</p>
+      <div class="grid"><label>養育費(1人あたり年額・0〜21歳)<input type="number" data-k="childCost" step="5"></label></div>
+      <ul id="childList"></ul>
+      <form id="childForm" class="child-form">
+        <input id="chName" placeholder="名前(例: 長男)" required>
+        <input id="chAge" type="number" placeholder="年齢" min="-20" max="30" required>
+        <select id="chCourse"></select>
+        <button>追加</button>
+      </form>
+    </details>
+
+    <details><summary>住居</summary>
+      <div class="grid">
+        <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option></select></label>
+        <label>家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
+      </div>
+      <div class="grid" id="buyFields">
+        <label>購入年齢<input type="number" data-k="housing.buyAge" min="0" max="100"></label>
+        <label>物件価格<input type="number" data-k="housing.price" step="100"></label>
+        <label>頭金<input type="number" data-k="housing.down" step="50"></label>
+        <label>諸費用(登記・手数料など)<input type="number" data-k="housing.closing" step="10"></label>
+        <label>ローン金利 (%/年)<input type="number" data-k="housing.rate" step="0.1"></label>
+        <label>返済年数<input type="number" data-k="housing.years" min="1" max="50"></label>
+        <label>管理・修繕・固定資産税(年額)<input type="number" data-k="housing.upkeep" step="5"></label>
+      </div>
+      <p class="hint" id="loanInfo"></p>
+    </details>
+
+    <details><summary>ライフイベント</summary>
+      <p class="hint">支出は正の数、収入(相続など)は負の数で入力します。</p>
+      <ul id="eventList"></ul>
+      <form id="eventForm" class="event-form">
+        <input id="evName" placeholder="例: 車の購入" required>
+        <input id="evAge" type="number" placeholder="年齢" min="0" max="120" required>
+        <input id="evAmount" type="number" placeholder="金額(万円)" required>
+        <button>追加</button>
+      </form>
+    </details>
+
+    <div class="actions">
+      <button type="button" id="exportJson" class="secondary">データを保存(JSON)</button>
+      <button type="button" id="importJson" class="secondary">データを読込</button>
+      <button type="button" id="reset" class="secondary">初期値に戻す</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
-    <h2>ライフイベント</h2>
-    <p class="hint">支出は正の数、収入(相続など)は負の数で入力します。</p>
-    <ul id="eventList"></ul>
-    <form id="eventForm" class="event-form">
-      <input id="evName" placeholder="例: 住宅購入" required>
-      <input id="evAge" type="number" placeholder="年齢" min="0" max="120" required>
-      <input id="evAmount" type="number" placeholder="金額(万円)" required>
-      <button>追加</button>
-    </form>
-    <button type="button" id="reset" class="secondary">初期値に戻す</button>
   </section>
 
   <section class="panel" id="results">
     <h2>結果</h2>
     <div class="cards" id="cards"></div>
     <div id="chart" role="img" aria-label="年齢ごとの資産残高の推移グラフ"></div>
-    <details><summary>年別の収支表</summary>
-      <div class="table-wrap"><table id="table"></table></div>
-    </details>
+    <div class="actions no-print">
+      <button type="button" id="exportCsv">キャッシュフロー表をCSV出力</button>
+      <button type="button" id="print" class="secondary">印刷 / PDF保存</button>
+    </div>
+    <h3>キャッシュフロー表</h3>
+    <div class="table-wrap"><table id="table"></table></div>
+    <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
 <script src="calc.js"></script>
