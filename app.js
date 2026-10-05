@@ -1,7 +1,7 @@
 const DEFAULTS = {
   age: 30, retireAge: 65, pensionAge: 65, endAge: 95,
   income: 450, raise: 1, severance: 1500,
-  pensionMode: "auto", job: "employee", startAge: 22, avgGross: 600, pension: 180,
+  pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 600, pension: 180,
   livingItems: [
     { name: "食費", monthly: 6 }, { name: "水道光熱費", monthly: 2 }, { name: "通信費", monthly: 1 },
     { name: "日用品", monthly: 1 }, { name: "被服・美容", monthly: 1 }, { name: "交際・娯楽", monthly: 3 },
@@ -11,7 +11,7 @@ const DEFAULTS = {
   assets: [{ name: "預貯金", amount: 200, rate: 0.1 }, { name: "投資信託・株式", amount: 100, rate: 4 }],
   debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, severance: 800,
-    pensionMode: "auto", job: "employee", startAge: 22, avgGross: 400, pension: 120 },
+    pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
   childCost: 80,
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30 },
@@ -176,7 +176,9 @@ function update() {
     $("manual" + key).style.display = auto ? "none" : "";
     $("pensionInfo" + key).textContent = auto
       ? `見積額: 年${est.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円(月${(est / 12).toFixed(1)}万円)。` +
-        (person.job === "employee" ? "" : "働き方が会社員・公務員以外のため、国民年金(基礎年金)のみの見積もりです。")
+        (person.job === "employee"
+        ? (person.kouseiEnd > 0 && person.kouseiEnd < 65 ? `厚生年金は${person.startAge}〜${person.kouseiEnd}歳の分のみ。以降は国民年金です。` : "")
+        : "働き方が会社員・公務員以外のため、国民年金(基礎年金)のみの見積もりです。")
       : "";
   }
   document.getElementById("buyFields").style.display = state.housing.type === "buy" ? "" : "none";

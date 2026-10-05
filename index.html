@@ -30,6 +30,7 @@
           <div class="grid" id="autoMe">
             <label>働き方<select data-k="job"><option value="employee">会社員・公務員</option><option value="self">自営業・フリーランス</option><option value="none">専業主婦(夫)など</option></select></label>
             <label>厚生年金に入った年齢<input type="number" data-k="startAge" min="15" max="70"></label>
+            <label>会社員をやめた年齢(途中でフリーランス等になった場合。空欄=退職まで)<input type="number" data-k="kouseiEnd" min="0" max="70" placeholder="空欄"></label>
             <label>生涯の平均年収(額面・ボーナス込)<input type="number" data-k="avgGross" step="10"></label>
           </div>
           <div class="grid" id="manualMe"><label>年金額 (年間)<input type="number" data-k="pension" step="10"></label></div>
@@ -87,6 +88,7 @@
           <div class="grid" id="autoSp">
             <label>働き方<select data-k="spouse.job"><option value="employee">会社員・公務員</option><option value="self">自営業・フリーランス</option><option value="none">専業主婦(夫)など</option></select></label>
             <label>厚生年金に入った年齢<input type="number" data-k="spouse.startAge" min="15" max="70"></label>
+            <label>会社員をやめた年齢(途中でフリーランス等になった場合。空欄=退職まで)<input type="number" data-k="spouse.kouseiEnd" min="0" max="70" placeholder="空欄"></label>
             <label>生涯の平均年収(額面・ボーナス込)<input type="number" data-k="spouse.avgGross" step="10"></label>
           </div>
           <div class="grid" id="manualSp"><label>年金額 (年間)<input type="number" data-k="spouse.pension" step="10"></label></div>

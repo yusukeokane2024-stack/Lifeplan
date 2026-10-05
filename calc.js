@@ -30,10 +30,12 @@
   const BASIC_FULL = 83.1;      // 老齢基礎年金(満額・40年加入)
   const KOUSEI_RATE = 0.005481; // 老齢厚生年金の乗率(平均標準報酬額 × 乗率 × 加入月数)
   function estimatePension(o) {
-    // o: { job: "employee" | "self" | "none", startAge, avgGross, retireAge, pensionAge }
+    // o: { job: "employee" | "self" | "none", startAge, kouseiEnd(0=退職まで), avgGross, retireAge, pensionAge }
     let total = BASIC_FULL; // 20〜60歳の40年間、保険料を納付した(または第3号)前提
     if (o.job === "employee") {
-      const months = Math.max(0, (Math.min(o.retireAge, 70) - o.startAge) * 12);
+      // 会社員を途中でやめた場合(kouseiEnd)は、その年齢までが厚生年金の加入期間
+      const end = o.kouseiEnd > 0 ? Math.min(o.kouseiEnd, o.retireAge) : o.retireAge;
+      const months = Math.max(0, (Math.min(end, 70) - o.startAge) * 12);
       const avgMonthly = Math.min(o.avgGross / 12, 100); // 標準報酬(賞与込み)の上限をざっくり反映
       total += avgMonthly * KOUSEI_RATE * months;
     }
