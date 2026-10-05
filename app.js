@@ -181,4 +181,11 @@ $("importFile").onchange = async ev => {
   ev.target.value = "";
 };
 
+// 数字入力欄はスマホで数字キーパッドを出す。小数が要る欄(step が小数)は小数点付き。
+// 負の数を入れる欄(子どもの年齢・イベント金額)は iOS の数字キーパッドに「-」が無いので対象外。
+document.querySelectorAll('input[type="number"]').forEach(el => {
+  if (el.id === "chAge" || el.id === "evAmount") return;
+  el.inputMode = /\./.test(el.step) ? "decimal" : "numeric";
+});
+
 writeInputs(); update();
