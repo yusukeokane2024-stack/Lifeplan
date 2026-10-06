@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ライフプランシミュレーター</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="report.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -248,9 +249,12 @@
     <div class="cards" id="cards"></div>
     <p class="effect" id="effect"></p>
     <div id="chart" role="img" aria-label="年齢ごとの資産残高の推移グラフ"></div>
-    <div class="actions no-print">
-      <button type="button" id="exportCsv">キャッシュフロー表をCSV出力</button>
-      <button type="button" id="print" class="secondary">印刷 / PDF保存</button>
+    <div class="report-box">
+      <label>レポートに載せるお名前(任意)<input type="text" id="reportName" placeholder="例: 山田 太郎" maxlength="30" autocomplete="name"></label>
+      <div class="actions">
+        <button type="button" id="pdfBtn">📄 PDFレポートを出力</button>
+        <button type="button" id="exportCsv" class="secondary">CSV出力</button>
+      </div>
     </div>
     <details id="tableBox" open><summary>📋 キャッシュフロー表</summary>
       <div class="table-wrap"><table id="table"></table></div>
@@ -261,6 +265,7 @@
 <script src="calc.js"></script>
 <script src="app.js"></script>
 <script src="wizard.js"></script>
+<script src="report.js"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>

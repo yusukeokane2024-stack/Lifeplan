@@ -99,13 +99,13 @@ ul{list-style:none;padding:0;margin:0 0 8px}
 .living-row button{background:transparent;color:var(--bad);height:32px;padding:0 8px}
 .living-total{font-weight:700;margin:12px 0 0;font-size:1.02rem}
 
-/* ---------- 表 ---------- */
+/* ---------- 表(画面用。PDFレポートの表には適用しない) ---------- */
 .table-wrap{overflow:auto;-webkit-overflow-scrolling:touch;max-height:420px;border-radius:12px}
-table{border-collapse:collapse;width:100%;font-size:.8rem;white-space:nowrap}
-th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right}
-th:first-child,td:first-child,th:last-child,td:last-child{text-align:left}
-th{position:sticky;top:0;background:var(--field);color:var(--muted);font-weight:700}
-tbody tr:nth-child(even) td,tr:nth-child(even) td{background:color-mix(in srgb,var(--field) 55%,transparent)}
+#table{border-collapse:collapse;width:100%;font-size:.8rem;white-space:nowrap}
+#table th,#table td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right}
+#table th:first-child,#table td:first-child,#table th:last-child,#table td:last-child{text-align:left}
+#table th{position:sticky;top:0;background:var(--field);color:var(--muted);font-weight:700}
+#table tr:nth-child(even) td{background:var(--field)}
 
 /* ---------- かんたん入力(ウィザード) ---------- */
 body.wizard-on main,body.wizard-on .hero{display:none}
@@ -134,18 +134,6 @@ body.wizard-on main,body.wizard-on .hero{display:none}
 #wzSkip{display:block;margin:10px auto 0}
 @media(max-width:480px){#wizard{padding:10px;align-items:flex-start}.wz-card{padding:18px 16px 14px;margin-top:6px}}
 
-/* ---------- 印刷 ---------- */
-@media print{
-  body{background:#fff;color:#000}
-  .hero,#wizard,#inputs,.no-print{display:none!important}
-  main{display:block;margin:0;padding:0}.panel{box-shadow:none;padding:0}
-  #results{position:static}
-  .table-wrap{max-height:none;overflow:visible}
-  table{font-size:9px}
-  #tableBox>summary{display:none}
-  :root{--panel:#fff;--line:#bbb;--fg:#000;--field:#fff}
-}
-
 /* ---------- 編集できる一覧(資産・ローン・子ども・イベント) ---------- */
 .item-list{margin-bottom:10px}
 .item-card{background:var(--field);border-radius:14px;padding:10px;margin-bottom:10px}
@@ -159,3 +147,7 @@ body.wizard-on main,body.wizard-on .hero{display:none}
 h3.sub{font-size:.9rem;margin:16px 0 8px;color:var(--muted)}
 .effect{background:var(--field);border-radius:12px;padding:10px 14px;font-size:.86rem;margin:0 0 12px;line-height:1.6}
 #chart .series2{fill:none;stroke:var(--accent2);stroke-width:2;stroke-dasharray:5 4;opacity:.9}
+
+.report-box{margin:6px 0 4px}
+.report-box .actions{margin-top:10px}
+.report-box .actions #pdfBtn{flex:2 1 220px}

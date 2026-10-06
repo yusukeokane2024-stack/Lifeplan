@@ -1,0 +1,77 @@
+/* PDFレポート専用。画面のテーマに依存させないため、色はすべて固定値(白地)にしている。 */
+.rp-overlay{position:fixed;inset:0;z-index:99999;background:#f3f5fb;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font:600 1rem/1.6 system-ui,"Hiragino Sans","Noto Sans JP",sans-serif;color:#1b2333;text-align:center;padding:24px}
+.rp-overlay small{font-weight:400;color:#667085}
+.rp-spin{width:44px;height:44px;border-radius:50%;border:5px solid #dfe4f7;border-top-color:#3b57d6;animation:rpspin 1s linear infinite}
+@keyframes rpspin{to{transform:rotate(360deg)}}
+
+.rp-root{position:absolute;left:0;top:0;width:1123px;z-index:0;background:#fff;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic","Meiryo",sans-serif;color:#1b2333;line-height:1.45}
+.rp-root *{box-sizing:border-box}
+.rp-page{position:relative;width:1123px;height:794px;background:#fff;overflow:hidden;padding:26px 34px 44px}
+.rp-head{display:flex;align-items:baseline;justify-content:space-between;height:40px}
+.rp-brand{font-size:14px;color:#52514e;font-weight:600;width:260px}
+.rp-title{font-size:25px;font-weight:800;color:#2c43b0;text-align:center;flex:1}
+.rp-date{font-size:12px;color:#7a8294;width:260px;text-align:right}
+.rp-foot{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-size:12px;color:#7a8294}
+
+/* 表紙 */
+.rp-cover{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;height:100%;padding-bottom:40px}
+.rp-cover .bar{width:84px;height:5px;border-radius:3px;background:linear-gradient(90deg,#3b57d6,#8b5cf6);margin:0 auto 34px}
+.rp-cover h1{margin:0;font-size:46px;line-height:1.35;color:#2c43b0;letter-spacing:.04em}
+.rp-cover .for{margin-top:38px;font-size:20px;font-weight:700}
+.rp-cover .when{margin-top:12px;font-size:15px;color:#7a8294}
+
+/* カード・表 */
+.rp-cols{display:flex;gap:14px;margin-top:10px}
+.rp-col{flex:1;min-width:0;height:664px;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.rp-card{flex:none;border:1.5px solid #3b57d6;border-radius:8px;overflow:hidden;background:#fff}
+.rp-card>h3{margin:0;padding:6px 12px;font-size:15px;color:#2c43b0;background:#eef1fd;border-bottom:1px solid #c9d1f2}
+.rp-card .rp-body{padding:8px 10px 9px}
+.rp-card h4{margin:6px 0 4px;font-size:13px;color:#3b57d6}
+.rp-card h4:first-child{margin-top:0}
+.rp-t{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:2px}
+.rp-t th{background:#3b57d6;color:#fff;font-weight:700;padding:3px 6px;border:1px solid #c9d1f2;text-align:center}
+.rp-t td{padding:3px 7px;border:1px solid #dfe3f1;background:#fff}
+.rp-t td.n{text-align:right;white-space:nowrap}
+.rp-t td.c{text-align:center}
+.rp-t tr.sum td{background:#eef1fd;font-weight:700}
+.rp-kv th{background:#eef1fd;color:#1b2333;text-align:left;width:42%;border:1px solid #dfe3f1;padding:3px 7px}
+.rp-kv td{padding:3px 7px}
+.rp-note{font-size:11.5px;color:#52514e;margin:3px 0 0;line-height:1.55}
+.rp-total{font-size:12.5px;font-weight:700;color:#2c43b0;text-align:right;margin-top:3px}
+
+/* サマリー */
+.rp-sum{display:flex;gap:14px;margin-top:12px}
+.rp-verdict{flex:1.5;border-radius:10px;padding:14px 18px;display:flex;gap:14px;align-items:center}
+.rp-verdict.ok{background:#e6f6ee;border:1.5px solid #9ad6b7}
+.rp-verdict.ng{background:#fdecec;border:1.5px solid #f0b0b3}
+.rp-verdict .ic{font-size:36px;line-height:1}
+.rp-verdict b{display:block;font-size:19px;line-height:1.45}
+.rp-verdict.ok b{color:#0a7a4d}.rp-verdict.ng b{color:#c1272d}
+.rp-verdict span{display:block;font-size:12.5px;color:#52514e;margin-top:3px}
+.rp-kpis{flex:2;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rp-kpi{border:1.5px solid #c9d1f2;border-radius:10px;padding:9px 12px;background:#f7f8fe}
+.rp-kpi small{display:block;font-size:12px;color:#667085}
+.rp-kpi strong{display:block;font-size:22px;line-height:1.35;color:#1b2333}
+.rp-kpi strong.neg{color:#c1272d}
+.rp-effect{margin-top:10px;font-size:13.5px;background:#f3f5fb;border-radius:8px;padding:8px 14px}
+.rp-chart{margin-top:10px;border:1.5px solid #dfe3f1;border-radius:8px;padding:6px 10px 8px}
+.rp-chart h3{margin:0 0 2px;font-size:14px;color:#2c43b0}
+.rp-chart .sub{font-size:12px;color:#52514e;margin:0 0 2px}
+.rp-legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;font-size:12px;color:#52514e;margin-top:2px}
+.rp-legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.rp-legend i.ln{height:3px;border-radius:2px;vertical-align:3px;width:16px}
+
+/* キャッシュフロー表(年を横に並べる) */
+.rp-cf{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}
+.rp-cf td,.rp-cf th{border:1px solid #dfe3f1;padding:0 4px;text-align:right;white-space:nowrap;overflow:hidden}
+.rp-cf th{background:#eef1fd;color:#1b2333;font-weight:700}
+.rp-cf td.l,.rp-cf th.l{text-align:left}
+.rp-cf tr.sec td{font-weight:800;text-align:left;color:#1b2333}
+.rp-cf tr.sec.age td{background:#e6eefb}
+.rp-cf tr.sec.inc td{background:#e6f6ee}
+.rp-cf tr.sec.out td{background:#fdecec}
+.rp-cf tr.sec.bal td{background:#e6ecfd}
+.rp-cf tr.tot td{font-weight:800;background:#f7f8fe}
+.rp-cf td.neg{color:#c1272d}
+.rp-cf td.sub{padding-left:14px;text-align:left}
+.rp-unit{position:absolute;right:34px;top:56px;font-size:11.5px;color:#7a8294}

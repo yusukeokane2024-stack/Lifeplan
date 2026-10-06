@@ -19,6 +19,7 @@ const DEFAULTS = {
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
+  reportName: "",
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
 };
 const KEY = "lifeplan.v2";
@@ -303,8 +304,9 @@ $("eventForm").addEventListener("submit", ev => {
 });
 $("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); refresh(); } };
 $("exportCsv").onclick = () => download("lifeplan-cashflow.csv", toCsv(result.rows), "text/csv;charset=utf-8");
-$("print").onclick = () => { $("tableBox").open = true; window.print(); };
-if (matchMedia("(max-width:800px)").matches) $("tableBox").open = false; // スマホでは表を折りたたんで開始
+$("pdfBtn").onclick = () => exportPdf();
+$("reportName").value = state.reportName || "";
+$("reportName").addEventListener("input", e => { state.reportName = e.target.value; save(); });
 $("exportJson").onclick = () => download("lifeplan-data.json", JSON.stringify(state, null, 2), "application/json");
 $("importJson").onclick = () => $("importFile").click();
 $("importFile").onchange = async ev => {
