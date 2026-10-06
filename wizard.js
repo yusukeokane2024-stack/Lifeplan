@@ -14,7 +14,7 @@ function assetByName(name, rate, type) {
 const isGeneratedChildren = () => state.children.every(c => /^子ども\d$/.test(c.name));
 
 function setupWizardInputs() {
-  wz("wzName").addEventListener("input", e => { currentProfile().name = e.target.value; persist(); updateProfileUI(); });
+  wz("wzName").addEventListener("input", e => { currentProfile().name = e.target.value; touchProfile(currentProfile()); updateProfileUI(); });
   wz("wzCash").addEventListener("input", e => { assetByName("預貯金", 0.1, "cash").amount = numVal(e.target); refresh(); });
   wz("wzInvest").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").amount = numVal(e.target); refresh(); });
   wz("wzMonthly").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").monthly = numVal(e.target); refresh(); });

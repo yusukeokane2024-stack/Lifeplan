@@ -22,10 +22,47 @@
     </div>
     <div class="hero-btns">
       <button type="button" id="openProfiles" class="pill" aria-haspopup="dialog">👥 <span id="profName">受講生</span> ▾</button>
+      <button type="button" id="openAuth" class="pill" hidden aria-haspopup="dialog">☁️ <span id="syncLabel">ログイン</span></button>
       <button type="button" id="openWizard" class="pill">✏️ 質問に答えて入力</button>
     </div>
   </div>
 </header>
+
+<dialog id="authDlg" aria-labelledby="authTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="authTitle">☁️ ログイン</h2><button type="button" id="authClose" class="secondary">閉じる</button></div>
+
+    <div id="authOut">
+      <p class="hint">ログインすると、スマホでもパソコンでも<b>同じ受講生プランを見たり編集したり</b>できます。入力内容は自動で同期されます。</p>
+      <form id="authForm" class="auth-form">
+        <label>メールアドレス<input type="email" id="authEmail" autocomplete="username" inputmode="email" required></label>
+        <label>パスワード(6文字以上)<input type="password" id="authPass" autocomplete="current-password" minlength="6" required></label>
+        <div class="actions"><button type="submit" id="authLogin">ログイン</button><button type="button" id="authSignup" class="secondary">新規登録</button></div>
+      </form>
+      <button type="button" id="authForgot" class="link">パスワードを忘れた場合</button>
+      <p class="hint">初めての方は、メールアドレスとパスワードを入れて「新規登録」を押してください。この端末のプランは、登録したアカウントに引き継がれます。</p>
+    </div>
+
+    <div id="authNew" hidden>
+      <p class="hint">新しいパスワードを入力してください。</p>
+      <form id="authNewForm" class="auth-form">
+        <label>新しいパスワード(6文字以上)<input type="password" id="authNewPass" autocomplete="new-password" minlength="6" required></label>
+        <div class="actions"><button type="submit" id="authNewBtn">パスワードを変更</button></div>
+      </form>
+    </div>
+
+    <div id="authIn" hidden>
+      <p class="auth-acct">ログイン中: <b id="authEmailOut"></b></p>
+      <p class="hint" id="authStatus"></p>
+      <div class="actions">
+        <button type="button" id="authSyncNow">今すぐ同期</button>
+        <button type="button" id="authLogout" class="secondary">ログアウト</button>
+      </div>
+    </div>
+
+    <p id="authMsg" class="auth-msg" role="status" aria-live="polite"></p>
+  </div>
+</dialog>
 
 <dialog id="profDlg" aria-labelledby="profTitle">
   <div class="dlg">
@@ -57,6 +94,7 @@
         <li><b>登録不要</b>。入力内容はこの端末の中だけに保存されます</li>
         <li>細かい条件は、<b>あとから自由に調整</b>できます</li>
       </ul>
+      <button type="button" id="wzLogin" class="link" hidden>すでにアカウントをお持ちの方は、ログインして続きから</button>
     </div>
 
     <div class="wz-step" data-step="1" hidden>
@@ -283,10 +321,12 @@
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
+<script src="config.js"></script>
 <script src="calc.js"></script>
 <script src="app.js"></script>
 <script src="wizard.js"></script>
 <script src="profiles.js"></script>
+<script src="sync.js"></script>
 <script src="report.js"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>

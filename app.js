@@ -27,7 +27,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 
 function merge(s) {
   const d = structuredClone(DEFAULTS);
-  if (!s || typeof s !== "object") return d;
+  if (!s || typeof s !== "object") { d.living = d.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; return d; }
   const out = { ...d, ...s, spouse: { ...d.spouse, ...s.spouse }, housing: { ...d.housing, ...s.housing } };
   // 旧形式(年金額を手入力のみ)からの移行: 保存済みの年金額があれば手入力のままにする
   if (!s.pensionMode && typeof s.pension === "number") out.pensionMode = "manual";
@@ -48,12 +48,16 @@ function merge(s) {
 // ---- 受講生ごとのプラン保存(この端末のブラウザ内) ----
 const STORE_KEY = "lifeplan.profiles.v1", LEGACY_KEY = "lifeplan.v2";
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-function newProfile(name, data) { return { id: uid(), name, memo: "", createdAt: Date.now(), updatedAt: Date.now(), data: data || merge(null) }; }
+// dirty: まだサーバーに送っていない変更がある / syncedMs: サーバーと最後にそろった時点の更新時刻
+function newProfile(name, data) { return { id: uid(), name, memo: "", createdAt: Date.now(), updatedAt: Date.now(), data: data || merge(null), dirty: true, syncedMs: 0 }; }
+// 名前・メモなどを変えたとき: 更新日時を進めて、同期の対象にする
+function touchProfile(p) { p.updatedAt = Date.now(); p.dirty = true; persist(); if (typeof scheduleSync === "function") scheduleSync(); }
 function loadStore() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY));
     if (s && Array.isArray(s.profiles) && s.profiles.length) {
       if (!s.profiles.some(p => p.id === s.currentId)) s.currentId = s.profiles[0].id;
+      s.deleted = Array.isArray(s.deleted) ? s.deleted : [];
       return s;
     }
   } catch (e) {}
@@ -61,7 +65,7 @@ function loadStore() {
   let legacy = null;
   try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY)); } catch (e) {}
   const p = newProfile((legacy && legacy.reportName) || "受講生 1", legacy ? merge(legacy) : null);
-  return { currentId: p.id, profiles: [p] };
+  return { currentId: p.id, profiles: [p], deleted: [], owner: null };
 }
 let store = loadStore();
 const currentProfile = () => store.profiles.find(p => p.id === store.currentId);
@@ -70,9 +74,11 @@ let lastSig = JSON.stringify(state), quietSave = true; // 開いただけでは�
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
 function save() {
   const p = currentProfile(), sig = JSON.stringify(state);
-  if (sig !== lastSig) { if (!quietSave) p.updatedAt = Date.now(); lastSig = sig; }
+  let changed = false;
+  if (sig !== lastSig) { if (!quietSave) { p.updatedAt = Date.now(); p.dirty = true; changed = true; } lastSig = sig; }
   p.data = state;
   persist();
+  if (changed && typeof scheduleSync === "function") scheduleSync();
 }
 
 // data-k="spouse.income" のようなパスで state を読み書きする

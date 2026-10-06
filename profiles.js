@@ -33,10 +33,10 @@ function renderProfiles() {
     const row = document.createElement("div"); row.className = "prof-row" + (cur ? " cur" : "");
     const name = document.createElement("input"); name.className = "nm"; name.value = p.name; name.placeholder = "受講生の名前"; name.maxLength = 30;
     name.setAttribute("aria-label", "受講生の名前");
-    name.oninput = () => { p.name = name.value; persist(); updateProfileUI(); };
+    name.oninput = () => { p.name = name.value; touchProfile(p); updateProfileUI(); };
     const memo = document.createElement("input"); memo.value = p.memo || ""; memo.placeholder = "メモ(任意。例: 第3期 / 面談日 10/20)"; memo.maxLength = 80;
     memo.setAttribute("aria-label", "メモ");
-    memo.oninput = () => { p.memo = memo.value; persist(); };
+    memo.oninput = () => { p.memo = memo.value; touchProfile(p); };
     const meta = document.createElement("p"); meta.className = "prof-meta";
     meta.textContent = `最終更新 ${fmtDate(p.updatedAt)} ／ ${summaryOf(p)}`;
     if (cur) { const b = document.createElement("span"); b.className = "prof-badge"; b.textContent = "編集中"; meta.prepend(b); }
@@ -48,7 +48,7 @@ function renderProfiles() {
     dup.onclick = () => {
       if (cur) save();
       const c = newProfile((p.name || "名前未設定") + "(コピー)", structuredClone(p.data)); c.memo = p.memo || "";
-      store.profiles.push(c); persist(); renderProfiles();
+      store.profiles.push(c); persist(); renderProfiles(); if (typeof scheduleSync === "function") scheduleSync();
     };
     const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.textContent = "削除";
     del.onclick = () => deleteProfile(p);
@@ -60,9 +60,10 @@ function deleteProfile(p) {
   if (!confirm(`「${p.name || "名前未設定"}」のプランを削除します。元に戻せません。よろしいですか?`)) return;
   const wasCur = p.id === store.currentId;
   store.profiles = store.profiles.filter(x => x.id !== p.id);
+  if (!store.deleted.includes(p.id)) store.deleted.push(p.id); // 同期中なら、サーバー側からも削除する
   if (!store.profiles.length) { const n = newProfile("受講生 1"); store.profiles.push(n); store.currentId = n.id; switchProfileLoaded(); }
   else if (wasCur) { store.currentId = [...store.profiles].sort((a, b) => b.updatedAt - a.updatedAt)[0].id; switchProfileLoaded(); }
-  persist(); renderProfiles();
+  persist(); renderProfiles(); if (typeof scheduleSync === "function") scheduleSync();
 }
 // 現在のプランが差し替わったとき(削除など)に、保存し直さず画面だけ読み込む
 function switchProfileLoaded() {
@@ -104,7 +105,7 @@ $("profFile").onchange = async ev => {
       if (it.createdAt) p.createdAt = it.createdAt;
       store.profiles.push(p);
     }
-    persist(); renderProfiles();
+    persist(); renderProfiles(); if (typeof scheduleSync === "function") scheduleSync();
     alert(`${items.length}件のプランを追加しました。`);
   } catch (e) { alert("読み込めませんでした。このアプリで保存したバックアップ(JSON)を選んでください。"); }
   ev.target.value = "";
