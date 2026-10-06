@@ -51,7 +51,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 // dirty: まだサーバーに送っていない変更がある / syncedMs: サーバーと最後にそろった時点の更新時刻
 function newProfile(name, data) { return { id: uid(), name, memo: "", createdAt: Date.now(), updatedAt: Date.now(), data: data || merge(null), dirty: true, syncedMs: 0 }; }
 // 名前・メモなどを変えたとき: 更新日時を進めて、同期の対象にする
-function touchProfile(p) { p.updatedAt = Date.now(); p.dirty = true; persist(); if (typeof scheduleSync === "function") scheduleSync(); }
+function touchProfile(p) { p.updatedAt = Math.max(Date.now(), (p.syncedMs || 0) + 1); p.dirty = true; persist(); if (typeof scheduleSync === "function") scheduleSync(); }
 function loadStore() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY));
@@ -75,7 +75,7 @@ function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)
 function save() {
   const p = currentProfile(), sig = JSON.stringify(state);
   let changed = false;
-  if (sig !== lastSig) { if (!quietSave) { p.updatedAt = Date.now(); p.dirty = true; changed = true; } lastSig = sig; }
+  if (sig !== lastSig) { if (!quietSave) { p.updatedAt = Math.max(Date.now(), (p.syncedMs || 0) + 1); p.dirty = true; changed = true; } lastSig = sig; }
   p.data = state;
   persist();
   if (changed && typeof scheduleSync === "function") scheduleSync();

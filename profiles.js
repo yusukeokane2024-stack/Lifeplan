@@ -38,7 +38,8 @@ function renderProfiles() {
     memo.setAttribute("aria-label", "メモ");
     memo.oninput = () => { p.memo = memo.value; touchProfile(p); };
     const meta = document.createElement("p"); meta.className = "prof-meta";
-    meta.textContent = `最終更新 ${fmtDate(p.updatedAt)} ／ ${summaryOf(p)}`;
+    const syncMark = typeof session !== "undefined" && session ? (p.dirty && !isPristine(p) ? "⏳未同期 ／ " : "☁️同期済み ／ ") : "";
+    meta.textContent = `${syncMark}最終更新 ${fmtDate(p.updatedAt)} ／ ${summaryOf(p)}`;
     if (cur) { const b = document.createElement("span"); b.className = "prof-badge"; b.textContent = "編集中"; meta.prepend(b); }
     const btns = document.createElement("div"); btns.className = "prof-btns";
     const open = document.createElement("button"); open.type = "button"; open.className = "open";

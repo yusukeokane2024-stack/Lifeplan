@@ -165,6 +165,45 @@ function removeLocal(id) {
   if (wasCurrent) switchProfileLoaded();
 }
 
+// ---- 食い違い(競合)の解決: 前回同期した時点(base)を基準に、項目ごとに合わせる ----
+const isObj = v => v && typeof v === "object" && !Array.isArray(v);
+const same = (a, b) => stable(a) === stable(b);
+// 片方だけが変えた項目はそのまま取り込み、両方が同じ項目を変えていたら新しい方(localWins)を採用して conflict を立てる
+function mergeVal(b, l, r, localWins, st) {
+  if (same(l, r)) return l;
+  if (same(b, r)) return l;   // サーバー側は変わっていない → 端末側
+  if (same(b, l)) return r;   // 端末側は変わっていない → サーバー側
+  if (isObj(l) && isObj(r) && isObj(b)) {
+    const out = {};
+    for (const k of new Set([...Object.keys(l), ...Object.keys(r)])) { const v = mergeVal(b[k], l[k], r[k], localWins, st); if (v !== undefined) out[k] = v; }
+    return out;
+  }
+  st.conflict = true; return localWins ? l : r;
+}
+async function resolveConflicts(list, up) {
+  const byId = new Map((await remoteGet(list.map(p => p.id))).map(r => [r.id, r]));
+  for (const p of list) {
+    const row = byId.get(p.id);
+    if (!row) { up.push(p); continue; }                          // サーバーから消えていた → 端末側を送り直す
+    const localWins = p.updatedAt >= row.updated_ms;
+    const local = { name: p.name, memo: p.memo, data: structuredClone(p.data) };
+    const remote = { name: row.name, memo: row.memo, data: merge(row.data) };
+    const st = { conflict: false };
+    let merged;
+    if (p.base) merged = mergeVal({ name: p.base.name, memo: p.base.memo, data: merge(p.base.data) }, local, remote, localWins, st);
+    else { st.conflict = true; merged = localWins ? local : remote; } // 基準がない古いデータは、新しい方を採用
+    if (st.conflict) { // 同じ項目を両方が変えていた: 採用しなかった側を「競合コピー」として残す
+      const loser = localWins ? remote : local;
+      const c = newProfile((loser.name || "名前未設定") + "(競合コピー)", loser.data); c.memo = loser.memo;
+      store.profiles.push(c); up.push(c);
+    }
+    p.name = merged.name; p.memo = merged.memo; p.data = merge(merged.data);
+    p.updatedAt = Math.max(Date.now(), row.updated_ms + 1); p.dirty = true;
+    up.push(p);
+    if (p.id === store.currentId) { persist(); switchProfileLoaded(); }
+  }
+}
+
 async function syncNow() {
   if (!session) return;
   if (syncing) { syncAgain = true; return; }
@@ -179,10 +218,11 @@ async function syncNow() {
 
     // 1. サーバー側の一覧(更新時刻だけ)を取得して、差分を判定
     const remote = await remoteList();
+    store.remoteCount = remote.length;
     const rmap = new Map(remote.map(r => [r.id, r.updated_ms]));
     const delIds = store.deleted.filter(id => rmap.has(id));   // 端末で削除したプラン(サーバーに残っているもの)
     for (const id of delIds) rmap.delete(id);
-    const up = [], down = [];
+    const up = [], down = [], conflicts = [];
     for (const p of store.profiles.slice()) {
       const r = rmap.get(p.id);
       if (r === undefined) {
@@ -190,18 +230,19 @@ async function syncNow() {
         else if (!isPristine(p)) up.push(p);                                       // まだ送っていない新しいプラン
       } else if (r > (p.syncedMs || 0)) {                                          // サーバー側が更新されている
         if (!p.dirty) down.push(p.id);
-        else if (p.updatedAt >= r) up.push(p);                                     // 両方更新: 端末側が新しければ端末側を残す
-        else { const c = newProfile((p.name || "名前未設定") + "(競合コピー)", structuredClone(p.data)); c.memo = p.memo; store.profiles.push(c); up.push(c); down.push(p.id); applied++; }
+        else conflicts.push(p);                                                    // 両方更新: 項目ごとに合わせる
       } else if (p.dirty && !isPristine(p)) up.push(p);                            // 端末側だけ更新
       rmap.delete(p.id);
     }
     for (const id of rmap.keys()) down.push(id);                                   // 他の端末で作られたプラン
+    if (conflicts.length) { await resolveConflicts(conflicts, up); applied += conflicts.length; }
     // 2. 送信(追加・更新・削除)
     let newRev = rev;
     if (up.length || delIds.length) {
-      const snap = up.map(p => ({ p, ms: p.updatedAt }));
-      newRev = await remoteCommit(up, delIds);
-      for (const { p, ms } of snap) { p.syncedMs = ms; if (p.updatedAt === ms) p.dirty = false; } // 送信中にさらに編集されていたら、dirty のまま次回送る
+      const sent = up.map(p => ({ p, ms: p.updatedAt, base: { name: p.name, memo: p.memo, data: structuredClone(p.data) } }));
+      await remoteCommit(up, delIds);
+      newRev = null; // 書き込んだ直後は目印を記録しない(同時に他の端末が書いた更新を、次回の同期で必ず確認するため)
+      for (const { p, ms, base } of sent) { p.syncedMs = ms; p.base = base; if (p.updatedAt === ms) p.dirty = false; } // 送信中にさらに編集されていたら、dirty のまま次回送る
     }
     store.deleted = []; // 削除はサーバー反映済み(サーバーにもともと無かったものも含む)
     // 3. 受信
@@ -211,6 +252,7 @@ async function syncNow() {
         if (!p) { p = newProfile(row.name); p.id = row.id; store.profiles.push(p); }
         p.name = row.name; p.memo = row.memo; p.data = merge(row.data);
         p.createdAt = row.created_ms; p.updatedAt = p.syncedMs = row.updated_ms; p.dirty = false;
+        p.base = { name: row.name, memo: row.memo, data: structuredClone(p.data) };
         if (p.id === store.currentId) { persist(); switchProfileLoaded(); }
         applied++;
       }
@@ -254,6 +296,8 @@ function renderAuth() {
   el("authTitle").textContent = session ? "☁️ アカウント" : "☁️ ログイン";
   if (session) {
     el("authEmailOut").textContent = session.user.email;
+    const unsynced = store.profiles.filter(p => p.dirty && !isPristine(p)).length;
+    el("authCounts").textContent = `この端末のプラン: ${store.profiles.length}件` + (store.remoteCount !== undefined ? ` / サーバー上のプラン: ${store.remoteCount}件` : "") + ` / 未送信の変更: ${unsynced}件`;
     el("authStatus").textContent = ({
       syncing: "同期しています…", idle: syncState.at ? `同期済み(${timeOf(syncState.at)})` : "同期済み",
       offline: "オフラインです。ネットワークにつながると自動で同期します。", error: "同期できませんでした: " + (syncState.msg || ""), out: "",
