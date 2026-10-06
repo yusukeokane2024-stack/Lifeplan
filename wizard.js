@@ -65,7 +65,7 @@ function afterUpdate() {
   wz("wzRent").hidden = t === "own";
   wz("wzOwn").hidden = t !== "own";
   wz("wzBuy").hidden = t !== "buy";
-  const r = result;
+  const r = baseResult;
   wz("wzPreview").innerHTML = r.depletedAge === null
     ? `いまの予測: <b class="good">${state.endAge}歳まで資産は尽きません</b>(最終資産 約${fmt(r.finalBalance)}万円)`
     : `いまの予測: <b class="bad">${r.depletedAge}歳ごろに資産が尽きます</b>`;

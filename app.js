@@ -19,7 +19,9 @@ const DEFAULTS = {
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
-    ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
+    ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20,
+    ownPair: false, ownBorrow2: 2000, ownBorrowYear2: new Date().getFullYear() - 5, ownTerm2: 35, ownRate2: 1.2, ownLoan2: 1500, ownYears2: 25,
+    pair: false, pairRatio: 50 },
   policies: [],
   protection: { funeral: 200, livingRatio: 75, disabilityLossRate: 100, disabilityMedical: 10, disabilityYears: 0, disabilityPension: true, dankin: true, loanHolder: "me" },
   riskView: { who: "me", type: "death", age: 0 },
@@ -197,6 +199,8 @@ const MOVE_FIELDS = [
   { key: "age", type: "number", label: "住み替える年齢", min: 0, resort: true },
   { key: "type", type: "select", label: "新しい住まい", resort: true, options: [["buy", "購入する(買い替え)"], ["rent", "賃貸に引っ越す"]] },
   { key: "rent", type: "number", label: "新居の家賃(年額)", step: "10", min: 0, show: m => m.type === "rent" },
+  { key: "loanKind", type: "select", label: "ローン", resort: true, show: m => m.type === "buy" && state.spouse.enabled, options: [["single", "単独のローン"], ["pair", "ペアローン"]] },
+  { key: "pairRatio", type: "number", label: "1本目の借入割合(%)", step: "5", min: 0, show: m => m.type === "buy" && m.loanKind === "pair" && state.spouse.enabled },
   { key: "price", type: "number", label: "物件価格", show: m => m.type === "buy", step: "100", min: 0 },
   { key: "down", type: "number", label: "頭金", show: m => m.type === "buy", step: "50", min: 0 },
   { key: "closing", type: "number", label: "諸費用", show: m => m.type === "buy", step: "10", min: 0 },
@@ -293,7 +297,7 @@ function renderVerdict(r) {
 
 const COLS = [
   ["年齢", r => r.age], ["配偶者年齢", r => r.spouseAge ?? ""],
-  ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension],
+  ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension], ["遺族・障害年金", r => r.benefit, true], ["保険の給付", r => r.insIncome, true],
   ["退職金", r => r.severance], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
   ["イベント等", r => r.eventCost], ["支出合計", r => r.outgoTotal],
@@ -301,10 +305,12 @@ const COLS = [
 ];
 const num = v => typeof v === "number" ? Math.round(v) : v;
 
+const activeCols = rows => COLS.filter(c => !c[2] || rows.some(r => c[1](r) > 0.5)); // 万が一のときの列は、値があるときだけ出す
 function renderTable(rows) {
+  const cols = activeCols(rows);
   $("table").innerHTML =
-    "<tr>" + COLS.map(c => `<th>${c[0]}</th>`).join("") + "</tr>" +
-    rows.map(r => "<tr>" + COLS.map(([name, f], i) => {
+    "<tr>" + cols.map(c => `<th>${c[0]}</th>`).join("") + "</tr>" +
+    rows.map(r => "<tr>" + cols.map(([name, f]) => {
       const v = f(r), cls = (name === "資産残高" || name === "年間収支(現金)" || name === "資産の増減") && v < 0 ? ' class="bad"' : "";
       return `<td${cls}>${typeof v === "number" ? fmt(v) : esc(v)}</td>`;
     }).join("") + "</tr>").join("");
@@ -318,7 +324,7 @@ function download(name, text, type) {
 }
 function toCsv(rows) {
   const q = v => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const lines = [COLS.map(c => c[0]).join(",")].concat(rows.map(r => COLS.map(c => q(num(c[1](r)))).join(",")));
+  const cols = activeCols(rows), lines = [cols.map(c => c[0]).join(",")].concat(rows.map(r => cols.map(c => q(num(c[1](r)))).join(",")));
   return "﻿" + lines.join("\r\n") + "\r\n"; // BOM付きでExcelでも文字化けしない
 }
 
@@ -391,19 +397,49 @@ function renderRisk() {
   out.innerHTML = html;
 }
 
-let result;
+// ---- 表示するケース(通常 / 万が一)。画面上の結果(カード・グラフ・表)だけが切り替わり、PDFは常に通常のプラン ----
+let viewMode = "normal";
+function viewScenario() {
+  if (viewMode !== "risk") return null;
+  const rv = state.riskView;
+  if ((rv.who === "spouse" || rv.type === "death") && !state.spouse.enabled) return null;
+  const pAge = rv.who === "me" ? state.age : state.spouse.age, age = rv.age > 0 ? rv.age : pAge;
+  return age < pAge ? null : { type: rv.type, who: rv.who, age };
+}
+function renderView() {
+  const rv = state.riskView, sc = viewScenario(), active = !!(sc && result.scenarioInfo);
+  document.querySelectorAll("#viewSeg button").forEach(b => {
+    const v = b.dataset.view;
+    b.classList.toggle("on", v === "normal" ? !active : active && rv.type === "death" && ((v === "death-me" && rv.who === "me") || (v === "death-spouse" && rv.who === "spouse")));
+    b.disabled = v !== "normal" && !state.spouse.enabled;
+    b.title = b.disabled ? "配偶者を含める設定にすると切り替えられます" : "";
+  });
+  $("viewAge").hidden = viewMode !== "risk";
+  const bn = $("scenarioBanner");
+  if (viewMode !== "risk") { bn.hidden = true; return; }
+  bn.hidden = false;
+  if (!active) bn.innerHTML = `<span>この条件では、万が一の結果を表示できません(配偶者の設定や発生年齢を確認してください)。</span><button type="button" id="scnBack">通常に戻す</button>`;
+  else { const i = result.scenarioInfo, ev = rv.type === "death" ? "亡くなった" : "長期の就業不能になった";
+    bn.innerHTML = `<span>🛡️ <b>${whoName(rv.who)}が${sc.age}歳で${ev}場合</b>を表示中。下のカード・グラフ・表がこの場合になっています。<small>※ PDFレポートは、通常のプランで出力されます。</small></span><button type="button" id="scnBack">通常に戻す</button>`; }
+  $("scnBack").onclick = () => { viewMode = "normal"; update(); };
+}
+let result, baseResult;
 function update() {
   if (state.endAge < state.age) state.endAge = state.age;
   state.living = state.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
   $("livingTotal").textContent = `月額合計 ${(state.living / 12).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円 / 年額 ${fmt(state.living)}万円`;
-  result = LifePlan.simulate(state);
+  baseResult = LifePlan.simulate(state);                       // 通常のプラン(PDF・質問画面の見込みなどに使う)
+  const vs = viewScenario(), scnRes = vs ? LifePlan.simulate({ ...state, scenario: vs }) : null;
+  result = scnRes && scnRes.scenarioInfo ? scnRes : baseResult; // 画面の結果(切り替えたケース)
+  renderView();
   renderRisk(); renderVerdict(result); renderCards(result); renderChart(result.rows); renderTable(result.rows);
   const cashSum = state.assets.filter(x => x.type !== "invest").reduce((t, x) => t + x.amount, 0);
   $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円(預貯金 ${fmt(cashSum)}万円 / 投資 ${fmt(result.assetTotal - cashSum)}万円)` +
     (result.monthlyContrib ? ` / 毎月の積立 ${result.monthlyContrib.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : "") +
     (result.debtTotal ? ` / ローン残高合計 ${fmt(result.debtTotal)}万円(純資産 ${fmt(result.assetTotal - result.debtTotal)}万円)` : "");
   if (result.monthlyContrib > 0) {
-    const base = LifePlan.simulate({ ...state, assets: state.assets.map(x => ({ ...x, monthly: 0 })) });
+    // 積立の効果は、いま表示しているケース(通常 / 万が一)の中で比べる
+    const base = LifePlan.simulate({ ...state, assets: state.assets.map(x => ({ ...x, monthly: 0 })), ...(result.scenarioInfo && vs ? { scenario: vs } : {}) });
     const diff = result.finalBalance - base.finalBalance;
     $("effect").innerHTML = `📈 毎月${result.monthlyContrib.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円の積立で、積立をしない場合より<b>最終資産が約${fmt(Math.abs(diff))}万円${diff >= 0 ? "多く" : "少なく"}</b>なる見込みです。`;
   } else {
@@ -431,15 +467,29 @@ function update() {
   $("ownFields").style.display = ht === "own" ? "" : "none";
   $("rentLabel").style.display = ht === "own" ? "none" : "";
   const h = state.housing;
-  $("ownAuto").style.display = h.ownMode === "balance" ? "none" : "";
-  $("ownBal").style.display = h.ownMode === "balance" ? "" : "none";
+  const balMode = h.ownMode === "balance", pairOn = !!h.ownPair && state.spouse.enabled;
+  $("ownAuto").style.display = balMode ? "none" : "";
+  $("ownBal").style.display = balMode ? "" : "none";
+  $("ownPairCheck").style.display = state.spouse.enabled ? "" : "none";
+  $("ownPair2").style.display = pairOn ? "" : "none";
+  $("ownAuto2").style.display = balMode ? "none" : "";
+  $("ownBal2").style.display = balMode ? "" : "none";
+  $("ownHolder2").textContent = whoName(state.protection.loanHolder === "spouse" ? "me" : "spouse");
+  $("buyPairCheck").style.display = state.spouse.enabled ? "" : "none";
+  $("buyPair").style.display = h.pair && state.spouse.enabled ? "" : "none";
   let loanText = "";
-  if (h.type === "buy") loanText = `借入額 ${fmt(h.price - h.down)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(h.price - h.down, h.rate, h.years))}万円`;
-  else if (h.type === "own") {
-    const st = LifePlan.loanStatus({ mode: h.ownMode === "balance" ? "balance" : "auto", borrow: h.ownBorrow, borrowYear: h.ownBorrowYear, term: h.ownTerm, rate: h.ownRate, balance: h.ownLoan, years: h.ownYears }, new Date().getFullYear());
-    loanText = st.payment > 0 && st.remaining > 0
-      ? `${h.ownMode === "balance" ? "入力された残高" : "自動計算: いまのローン残高"} 約${fmt(st.balance)}万円 / 年間返済額 約${fmt(st.payment)}万円(あと${st.remaining}年、${state.age + st.remaining}歳ごろに完済) / 返済後の年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円`
-      : `ローンは完済済み(返済なし) / 年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円`;
+  if (h.type === "buy") {
+    const L = h.price - h.down, sh = h.pair && state.spouse.enabled ? (h.pairRatio ?? 50) / 100 : 1;
+    loanText = `借入額 ${fmt(L)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(L, h.rate, h.years))}万円` + (sh < 1 ? `(ペアローン: ${whoName(state.protection.loanHolder)} ${fmt(L * sh)}万円 + ${whoName(state.protection.loanHolder === "me" ? "spouse" : "me")} ${fmt(L * (1 - sh))}万円)` : "");
+  } else if (h.type === "own") {
+    const y = new Date().getFullYear(), mode = balMode ? "balance" : "auto";
+    const sts = [LifePlan.loanStatus({ mode, borrow: h.ownBorrow, borrowYear: h.ownBorrowYear, term: h.ownTerm, rate: h.ownRate, balance: h.ownLoan, years: h.ownYears }, y)];
+    if (pairOn) sts.push(LifePlan.loanStatus({ mode, borrow: h.ownBorrow2, borrowYear: h.ownBorrowYear2, term: h.ownTerm2, rate: h.ownRate2, balance: h.ownLoan2, years: h.ownYears2 }, y));
+    const live = sts.filter(st => st.payment > 0 && st.remaining > 0), bal = live.reduce((t, st) => t + st.balance, 0), pay = live.reduce((t, st) => t + st.payment, 0);
+    const upk = fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair);
+    loanText = live.length
+      ? `${balMode ? "入力された残高" : "自動計算: いまのローン残高"}${pairOn ? "(2本の合計)" : ""} 約${fmt(bal)}万円 / 年間返済額 約${fmt(pay)}万円(${live.map((st, i) => `${pairOn ? (i === 0 ? "1本目 " : "2本目 ") : ""}あと${st.remaining}年`).join("、")}) / 返済後の年間住居費 約${upk}万円`
+      : `ローンは完済済み(返済なし) / 年間住居費 約${upk}万円`;
   }
   $("loanInfo").textContent = loanText;
   $("debtInfo").textContent = state.debts.length
@@ -462,6 +512,14 @@ $("addLiving").onclick = () => {
   const names = $("livingRows").querySelectorAll("input:not([type])"); names[names.length - 1].focus();
 };
 $("riskBox").addEventListener("toggle", renderRisk);
+$("showRiskMain").onclick = () => { viewMode = "risk"; update(); $("viewSeg").scrollIntoView({ behavior: "smooth", block: "center" }); };
+$("viewSeg").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-view]"); if (!b || b.disabled) return;
+  const v = b.dataset.view;
+  if (v === "normal") viewMode = "normal";
+  else { viewMode = "risk"; state.riskView.type = "death"; state.riskView.who = v === "death-me" ? "me" : "spouse"; }
+  update();
+});
 $("addPolicy").onclick = () => {
   state.policies.push({ name: "生命保険", who: "me", death: 3000, incomeProtect: 0, incomeUntil: 60, disabilityBenefit: 0, premium: 0 });
   refresh();
@@ -471,7 +529,7 @@ $("addIncome").onclick = () => {
   refresh();
 };
 $("addMove").onclick = () => {
-  state.moves.push({ name: "住み替え", age: state.age + 10, type: "buy", rent: 120, price: 4000, down: 800, closing: 200, rate: 1.5, years: 30, upkeep: 30, salePrice: 3000, sellCost: 150 });
+  state.moves.push({ name: "住み替え", age: state.age + 10, type: "buy", loanKind: "single", pairRatio: 50, rent: 120, price: 4000, down: 800, closing: 200, rate: 1.5, years: 30, upkeep: 30, salePrice: 3000, sellCost: 150 });
   refresh();
 };
 $("assetForm").addEventListener("submit", ev => {

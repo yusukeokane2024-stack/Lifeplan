@@ -121,7 +121,7 @@ const rpCard = (title, body) => { const d = document.createElement("div"); d.cla
 
 // ---------- レポート全体 ----------
 function buildReport() {
-  const S = state, R = result, rows0 = R.rows;
+  const S = state, R = baseResult, rows0 = R.rows;
   const now = new Date(), y0 = now.getFullYear();
   RP_DATE = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
   const rows = rows0.map((r, i) => ({ ...r, year: y0 + i }));
@@ -235,18 +235,25 @@ function buildReport() {
   const h = S.housing;
   const house = h.type === "rent" ? [["住まい", "賃貸(住み続ける)"], ["家賃", `${rpMoney(h.rent)}/年`]]
     : h.type === "own" ? (() => {
-        const auto = h.ownMode !== "balance";
-        const st = LifePlan.loanStatus({ mode: auto ? "auto" : "balance", borrow: h.ownBorrow, borrowYear: h.ownBorrowYear, term: h.ownTerm, rate: h.ownRate, balance: h.ownLoan, years: h.ownYears }, new Date().getFullYear());
-        return [["住まい", "持ち家(購入済み)"],
-          ...(auto ? [["住宅ローン(借入時)", `${rpMoney(h.ownBorrow)}(${h.ownBorrowYear}年・${h.ownRate}%・${h.ownTerm}年返済)`]] : []),
-          ["現在のローン残高" + (auto ? "(自動計算)" : ""), st.remaining > 0 ? `約${rpMoney(st.balance)} / 年間返済 ${rpMoney(st.payment)}(あと${st.remaining}年)` : "完済済み"],
-          ["管理費・修繕積立金", `${h.ownMgmt}万円/月`], ["固定資産税等", `${rpMoney(h.ownTax)}/年`], ["修繕・メンテナンス費", `${rpMoney(h.ownRepair)}/年`]];
+        const auto = h.ownMode !== "balance", y = new Date().getFullYear(), pairOn = !!h.ownPair && S.spouse.enabled;
+        const mk = (b, by, t, r, bal, yrs) => LifePlan.loanStatus({ mode: auto ? "auto" : "balance", borrow: b, borrowYear: by, term: t, rate: r, balance: bal, years: yrs }, y);
+        const sts = [mk(h.ownBorrow, h.ownBorrowYear, h.ownTerm, h.ownRate, h.ownLoan, h.ownYears)];
+        if (pairOn) sts.push(mk(h.ownBorrow2, h.ownBorrowYear2, h.ownTerm2, h.ownRate2, h.ownLoan2, h.ownYears2));
+        const who1 = S.protection.loanHolder === "spouse" ? "配偶者" : "本人", who2 = who1 === "本人" ? "配偶者" : "本人";
+        const rows = [["住まい", "持ち家(購入済み)" + (pairOn ? "・ペアローン" : "")]];
+        sts.forEach((st, i) => {
+          const tag = pairOn ? `${i + 1}本目(${i ? who2 : who1})` : "";
+          if (auto) rows.push([`住宅ローン${tag ? " " + tag : ""}(借入時)`, i === 0 ? `${rpMoney(h.ownBorrow)}(${h.ownBorrowYear}年・${h.ownRate}%・${h.ownTerm}年返済)` : `${rpMoney(h.ownBorrow2)}(${h.ownBorrowYear2}年・${h.ownRate2}%・${h.ownTerm2}年返済)`]);
+          rows.push([`ローン残高${tag ? " " + tag : ""}${auto ? "(自動計算)" : ""}`, st.remaining > 0 ? `約${rpMoney(st.balance)} / 年間返済 ${rpMoney(st.payment)}(あと${st.remaining}年)` : "完済済み"]);
+        });
+        rows.push(["管理費・修繕積立金", `${h.ownMgmt}万円/月`], ["固定資産税等", `${rpMoney(h.ownTax)}/年`], ["修繕・メンテナンス費", `${rpMoney(h.ownRepair)}/年`]);
+        return rows;
       })()
     : [["住まい", `賃貸 → ${h.buyAge}歳で購入`], ["賃貸中の家賃", `${rpMoney(h.rent)}/年`], ["物件価格 / 頭金", `${rpMoney(h.price)} / ${rpMoney(h.down)}`], ["諸費用", rpMoney(h.closing)],
-        ["借入額", rpMoney(h.price - h.down)], ["金利 / 返済年数", `${h.rate}% / ${h.years}年`], ["管理・修繕・税", `${rpMoney(h.upkeep)}/年`]];
+        ["借入額", rpMoney(h.price - h.down) + (h.pair && S.spouse.enabled ? `(ペアローン: 1本目 ${h.pairRatio ?? 50}% / 2本目 ${100 - (h.pairRatio ?? 50)}%)` : "")], ["金利 / 返済年数", `${h.rate}% / ${h.years}年`], ["管理・修繕・税", `${rpMoney(h.upkeep)}/年`]];
   for (const m of [...S.moves].sort((a, b) => a.age - b.age)) {
     house.push([`${m.age}歳 ${esc(m.name || "住み替え")}`, (m.type === "buy"
-      ? `購入 ${rpMoney(m.price)}(頭金${rpMoney(m.down)}・${m.rate}%・${m.years}年)`
+      ? `購入 ${rpMoney(m.price)}(頭金${rpMoney(m.down)}・${m.rate}%・${m.years}年${m.loanKind === "pair" && S.spouse.enabled ? "・ペアローン" : ""})`
       : `賃貸へ(家賃${rpMoney(m.rent)}/年)`) + (m.salePrice ? ` / 旧居を${rpMoney(m.salePrice)}で売却` : "")]);
   }
   cards.push(rpCard("住居", rpTable(null, house, { kv: true })));

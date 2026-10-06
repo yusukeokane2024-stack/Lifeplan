@@ -295,6 +295,7 @@
         <div class="grid">
           <label>ローンの入力方法<select data-k="housing.ownMode"><option value="auto">借入時の条件から自動計算</option><option value="balance">いまの残高を直接入力</option></select></label>
           <label>金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
+          <label>1本目のローンの債務者<select data-k="protection.loanHolder"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
         </div>
         <div class="grid" id="ownAuto">
           <label>借入額(完済済みは0)<input type="number" data-k="housing.ownBorrow" step="100"></label>
@@ -304,6 +305,21 @@
         <div class="grid" id="ownBal">
           <label>いまのローン残高<input type="number" data-k="housing.ownLoan" step="100"></label>
           <label>ローン残り年数<input type="number" data-k="housing.ownYears" min="0" max="50"></label>
+        </div>
+        <label class="check" id="ownPairCheck"><input type="checkbox" data-k="housing.ownPair"> ペアローン(夫婦がそれぞれ借りている。2本目を入力)</label>
+        <div id="ownPair2">
+          <h3 class="sub">2本目のローン(債務者: <span id="ownHolder2">配偶者</span>)</h3>
+          <div class="grid" id="ownAuto2">
+            <label>借入額<input type="number" data-k="housing.ownBorrow2" step="100"></label>
+            <label>借入した年(西暦)<input type="number" data-k="housing.ownBorrowYear2" min="1980" max="2100"></label>
+            <label>返済期間(総年数)<input type="number" data-k="housing.ownTerm2" min="1" max="50"></label>
+            <label>金利 (%/年)<input type="number" data-k="housing.ownRate2" step="0.1"></label>
+          </div>
+          <div class="grid" id="ownBal2">
+            <label>いまのローン残高<input type="number" data-k="housing.ownLoan2" step="100"></label>
+            <label>ローン残り年数<input type="number" data-k="housing.ownYears2" min="0" max="50"></label>
+            <label>金利 (%/年)<input type="number" data-k="housing.ownRate2" step="0.1"></label>
+          </div>
         </div>
         <div class="grid">
           <label>管理費・修繕積立金(月額・戸建ては0)<input type="number" data-k="housing.ownMgmt" step="0.5"></label>
@@ -320,6 +336,8 @@
         <label>返済年数<input type="number" data-k="housing.years" min="1" max="50"></label>
         <label>管理・修繕・固定資産税(年額)<input type="number" data-k="housing.upkeep" step="5"></label>
       </div>
+      <label class="check" id="buyPairCheck"><input type="checkbox" data-k="housing.pair"> ペアローンで借りる(夫婦で借入額を分ける)</label>
+      <div class="grid" id="buyPair"><label>1本目(債務者は「現在の保障」の設定)の借入割合(%)<input type="number" data-k="housing.pairRatio" step="5" min="0" max="100"></label></div>
       <p class="hint" id="loanInfo"></p>
       <h3 class="sub">住み替え(将来の買い替え・賃貸への引っ越しなど)</h3>
       <p class="hint">住み替えの予定があれば追加します。いまが持ち家のときは、<b>売却価格からローンの残り(自動計算)と売却の費用を引いた分</b>が手元に入ります。新居が購入なら、頭金・諸費用が出て、新しいローンと維持費に切り替わります。何回でも追加できます。</p>
@@ -347,6 +365,13 @@
   </section>
 
   <section class="panel" id="results">
+    <div class="seg" id="viewSeg" role="group" aria-label="表示するケース">
+      <button type="button" data-view="normal" class="on">通常</button>
+      <button type="button" data-view="death-me">本人が亡くなった場合</button>
+      <button type="button" data-view="death-spouse">配偶者が亡くなった場合</button>
+    </div>
+    <label class="view-age" id="viewAge" hidden>万が一が起きる年齢<input type="number" data-k="riskView.age" placeholder="現在の年齢" min="0" max="100"></label>
+    <div id="scenarioBanner" class="scn-banner" hidden></div>
     <div id="verdict" class="verdict"></div>
     <div class="cards" id="cards"></div>
     <p class="effect" id="effect"></p>
@@ -364,6 +389,7 @@
         <label>何が起こる?<select data-k="riskView.type"><option value="death">死亡</option><option value="disability">長期の就業不能(病気・ケガ)</option></select></label>
         <label>その人の、発生時の年齢<input type="number" data-k="riskView.age" placeholder="現在の年齢" min="0" max="100"></label>
       </div>
+      <button type="button" id="showRiskMain" class="secondary">この場合を、上の結果(グラフ・表)に表示する</button>
       <div id="riskOut"></div>
     </details>
     <details id="tableBox" open><summary>📋 キャッシュフロー表</summary>
