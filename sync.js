@@ -15,6 +15,7 @@ const el = id => document.getElementById(id);
 
 let session = (() => { try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch (e) { return null; } })();
 let syncing = false, syncAgain = false, syncTimer = null;
+let lastSync = { up: 0, down: 0 }; // 直近の同期で、端末から送ったプラン数 / サーバーから受け取ったプラン数
 let syncState = { kind: session ? "idle" : "out", at: 0, msg: "" }; // out | idle | syncing | error | offline
 
 function saveSession(s) {
@@ -91,6 +92,12 @@ async function onSignedIn(s) {
   store.owner = s.user.id; persist();
   setSync("idle"); renderAuth(); updateAuthButton();
   await syncNow();
+  // この端末にあったプランと、アカウントにあったプランの両方がある → 別々に入力したプランが並んでいる可能性があるので確認を促す
+  if (lastSync.up > 0 && lastSync.down > 0 && store.profiles.length > 1) {
+    closeAuth();
+    alert(`この端末のプラン(${lastSync.up}件)と、アカウントに保存されていたプラン(${lastSync.down}件)を、どちらも残しました。\n\n同じ名前のプランが複数あるときは、別々に入力したものです。次の画面で内容(年齢など)を見て、使うプランを選び、不要なものは削除してください。`);
+    $("openProfiles").click();
+  }
 }
 function wipeLocal() {
   const n = newProfile("受講生 1");
@@ -236,6 +243,7 @@ async function syncNow() {
     }
     for (const id of rmap.keys()) down.push(id);                                   // 他の端末で作られたプラン
     if (conflicts.length) { await resolveConflicts(conflicts, up); applied += conflicts.length; }
+    lastSync = { up: up.filter(p => !p.syncedMs).length, down: down.length };
     // 2. 送信(追加・更新・削除)
     let newRev = rev;
     if (up.length || delIds.length) {
