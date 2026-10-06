@@ -184,3 +184,22 @@ dialog::backdrop{background:rgba(10,15,30,.55)}
 .auth-msg.bad{color:var(--bad)}
 .pill.warn{box-shadow:0 0 0 3px #ffb020,0 4px 14px rgba(0,0,0,.15)}
 #wzLogin{display:block;margin:12px auto 0;font-size:.82rem}
+
+/* ---------- 万が一のとき ---------- */
+.risk-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.risk-cards .card small+strong+small{margin-top:2px}
+.risk-chart{margin:8px 0}
+.risk-chart svg{width:100%;height:auto;display:block}
+.risk-chart .axis{font-size:11px;fill:var(--muted)}
+.risk-chart .grid-line{stroke:var(--line)}
+.risk-chart .zero-line{stroke:var(--bad);stroke-dasharray:4;opacity:.7}
+.risk-chart .series{fill:none;stroke:var(--accent);stroke-width:2.5}
+.risk-chart .series-risk{fill:none;stroke:var(--bad);stroke-width:2.5;stroke-dasharray:6 4}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;font-size:.78rem;color:var(--muted)}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}
+.lg-main{background:var(--accent)}.lg-risk{background:var(--bad)}
+table.plain{border-collapse:collapse;width:100%;font-size:.8rem;white-space:nowrap}
+table.plain th,table.plain td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right}
+table.plain th:first-child,table.plain td:first-child{text-align:left}
+table.plain th{background:var(--field);color:var(--muted);font-weight:700;position:sticky;top:0}
+details.inner{box-shadow:none;border-top:1px solid var(--line);border-radius:0;padding:0;background:none;margin-top:6px}

@@ -20,6 +20,9 @@ const DEFAULTS = {
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
+  policies: [],
+  protection: { funeral: 200, livingRatio: 75, disabilityLossRate: 100, disabilityMedical: 10, disabilityYears: 0, disabilityPension: true, dankin: true, loanHolder: "me" },
+  riskView: { who: "me", type: "death", age: 0 },
   incomeChanges: [],
   moves: [],
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
@@ -31,7 +34,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 function merge(s) {
   const d = structuredClone(DEFAULTS);
   if (!s || typeof s !== "object") { d.living = d.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; return d; }
-  const out = { ...d, ...s, spouse: { ...d.spouse, ...s.spouse }, housing: { ...d.housing, ...s.housing } };
+  const out = { ...d, ...s, spouse: { ...d.spouse, ...s.spouse }, housing: { ...d.housing, ...s.housing }, protection: { ...d.protection, ...s.protection }, riskView: { ...d.riskView, ...s.riskView } };
   // 旧形式(年金額を手入力のみ)からの移行: 保存済みの年金額があれば手入力のままにする
   if (!s.pensionMode && typeof s.pension === "number") out.pensionMode = "manual";
   if (s.spouse && !s.spouse.pensionMode && typeof s.spouse.pension === "number") out.spouse.pensionMode = "manual";
@@ -45,6 +48,7 @@ function merge(s) {
   if (s.housing && !s.housing.ownMode) out.housing.ownMode = "balance";
   out.debts = (Array.isArray(s.debts) ? s.debts : []).map(d => ({ mode: "balance", ...d }));
   out.children = Array.isArray(s.children) ? s.children : [];
+  out.policies = Array.isArray(s.policies) ? s.policies : [];
   out.incomeChanges = Array.isArray(s.incomeChanges) ? s.incomeChanges : [];
   out.moves = Array.isArray(s.moves) ? s.moves : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
@@ -171,6 +175,15 @@ const CHILD_FIELDS = [
   { key: "age", type: "number", label: "年齢(生まれる前は負の数)", signed: true },
   { key: "course", type: "select", label: "進路", full: true, options: Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => [k, v.label]) },
 ];
+const POLICY_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "who", type: "select", label: "被保険者", full: true, options: [["me", "本人"], ["spouse", "配偶者"]] },
+  { key: "death", type: "number", label: "死亡保険金(一時金・万円)", step: "100", min: 0 },
+  { key: "incomeProtect", type: "number", label: "収入保障保険(月額・万円)", step: "1", min: 0 },
+  { key: "incomeUntil", type: "number", label: "収入保障の満了年齢", min: 0 },
+  { key: "disabilityBenefit", type: "number", label: "就業不能保険(月額・万円)", step: "1", min: 0 },
+  { key: "premium", type: "number", label: "保険料(月額・万円・参考)", step: "0.1", min: 0, full: true },
+];
 const INCOME_FIELDS = [
   { key: "name", type: "text" },
   { key: "who", type: "select", label: "対象", options: [["me", "本人"], ["spouse", "配偶者"]] },
@@ -219,6 +232,7 @@ function renderLiving() {
 
 function renderLists() {
   state.events.sort((x, y) => x.age - y.age);
+  renderEditable($("policyList"), state.policies, POLICY_FIELDS);
   state.incomeChanges.sort((x, y) => x.from - y.from);
   renderEditable($("incomeList"), state.incomeChanges, INCOME_FIELDS, renderLists);
   state.moves.sort((x, y) => x.age - y.age);
@@ -308,13 +322,82 @@ function toCsv(rows) {
   return "﻿" + lines.join("\r\n") + "\r\n"; // BOM付きでExcelでも文字化けしない
 }
 
+// ---- 万が一のとき ----
+const whoName = w => (w === "me" ? "本人" : "配偶者");
+function riskCaseAt(who, type, age) { return LifePlan.riskSummary(state, { type, who, age: age > 0 ? age : (who === "me" ? state.age : state.spouse.age) }); }
+function lineChart(rows, series, w = 700, h = 240) {
+  const m = { l: 56, r: 14, t: 16, b: 28 };
+  const all = series.flatMap(sr => sr.vals);
+  let max = Math.max(0, ...all), min = Math.min(0, ...all); if (max === min) max = min + 1;
+  const x = i => m.l + (w - m.l - m.r) * (rows.length > 1 ? i / (rows.length - 1) : 0);
+  const y = v => m.t + (h - m.t - m.b) * (1 - (v - min) / (max - min));
+  let g = "";
+  for (let k = 0; k <= 4; k++) { const v = min + (max - min) * k / 4; g += `<line x1="${m.l}" x2="${w - m.r}" y1="${y(v)}" y2="${y(v)}" class="grid-line"/><text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" class="axis">${fmt(v)}</text>`; }
+  const step = Math.max(1, Math.ceil(rows.length / 7));
+  rows.forEach((r, i) => { if (i % step === 0) g += `<text x="${x(i)}" y="${h - 8}" text-anchor="middle" class="axis">${r.age}歳</text>`; });
+  const paths = series.map(sr => `<path d="M${sr.vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("L")}" class="${sr.cls}"/>`).join("");
+  return `<svg viewBox="0 0 ${w} ${h}">${g}<line x1="${m.l}" x2="${w - m.r}" y1="${y(0)}" y2="${y(0)}" class="zero-line"/>${paths}</svg>`;
+}
+function renderRisk() {
+  const box = $("riskBox");
+  if (!box.open) return; // 開いているときだけ計算する(入力のたびに何十回も試算するため)
+  const rv = state.riskView, out = $("riskOut");
+  const personAge = rv.who === "me" ? state.age : state.spouse.age;
+  const age = rv.age > 0 ? rv.age : personAge;
+  const card = (label, val, cls = "", sub = "") => `<div class="card"><small>${label}</small><strong class="${cls}">${val}</strong>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  let html = "";
+  if ((rv.who === "spouse" || rv.type === "death") && !state.spouse.enabled) {
+    out.innerHTML = `<p class="hint">配偶者を含める設定にすると、この場合を確認できます(「💑 配偶者」で「配偶者を含める」にチェックしてください)。</p>`; return;
+  }
+  if (age < personAge) { out.innerHTML = `<p class="hint">発生時の年齢は、現在の年齢(${personAge}歳)以上にしてください。</p>`; return; }
+  const rs = LifePlan.riskSummary(state, { type: rv.type, who: rv.who, age });
+  if (!rs.valid) { out.innerHTML = `<p class="hint">この条件では、万が一の試算ができません(発生時の年齢と、退職年齢・シミュレーション終了年齢を確認してください)。</p>`; return; }
+  const info = rs.info, scn = rs.scn, base = rs.base;
+  const okAll = scn.depletedAge === null;
+  const label = `${whoName(rv.who)}が${age}歳で${rv.type === "death" ? "亡くなった" : "長期の就業不能になった"}場合`;
+  html += okAll
+    ? `<div class="verdict ok"><div class="verdict-icon">🛡️</div><div><strong>現在の保障で、最後まで家計は成り立つ見込みです</strong><span>${label}。${state.endAge}歳時点の資産は約${fmt(scn.finalBalance)}万円(通常は約${fmt(base.finalBalance)}万円)。</span></div></div>`
+    : `<div class="verdict ng"><div class="verdict-icon">⚠️</div><div><strong>保障があと約${fmt(rs.shortfall)}万円、足りない見込みです</strong><span>${label}、${scn.depletedAge}歳ごろに資産が尽きます。万が一の発生時に、追加で約${fmt(rs.shortfall)}万円あれば、最後まで足ります。</span></div></div>`;
+  if (rv.type === "death") {
+    html += `<div class="cards risk-cards">` +
+      card("死亡保険金(一時金)", fmt(info.lump) + "万円", "", `葬儀費用 ${fmt(info.funeral)}万円は支出`) +
+      card("遺族年金(年額・目安)", fmt(info.survivorBasic + info.survivorKosei) + "万円", "", `基礎${fmt(info.survivorBasic)}(子が18歳になるまで)+厚生${fmt(info.survivorKosei)}`) +
+      card("収入保障保険(年額)", fmt(info.incomeProtect) + "万円", "", "満了年齢まで") +
+      card("団信で消えるローン", fmt(info.loanCleared) + "万円") +
+      card("追加で必要な保障額", okAll ? "不足なし" : fmt(rs.shortfall) + "万円", okAll ? "good" : "bad") +
+      card("資産が尽きる年齢", okAll ? "尽きない" : scn.depletedAge + "歳", okAll ? "good" : "bad", `通常: ${base.depletedAge === null ? "尽きない" : base.depletedAge + "歳"}`) + `</div>`;
+  } else {
+    const rowEvt = scn.rows.find(r => r.age === info.evtMyAge), rowBase = base.rows.find(r => r.age === info.evtMyAge);
+    const loss = (rowBase.salary + rowBase.spouseSalary) - (rowEvt.salary + rowEvt.spouseSalary);
+    html += `<div class="cards risk-cards">` +
+      card("収入の減少(年額)", "-" + fmt(loss) + "万円", "bad", "世帯の給与の減り方") +
+      card("障害年金(年額・目安)", fmt(info.disabilityPension) + "万円", "", state.protection.disabilityPension ? "2級の目安" : "見積もりに含めない設定") +
+      card("就業不能保険(年額)", fmt(info.benefit) + "万円") +
+      card("追加の医療費(年額)", "-" + fmt(info.medical) + "万円", "bad") +
+      card("追加で必要な保障額", okAll ? "不足なし" : fmt(rs.shortfall) + "万円", okAll ? "good" : "bad") +
+      card("資産が尽きる年齢", okAll ? "尽きない" : scn.depletedAge + "歳", okAll ? "good" : "bad", `通常: ${base.depletedAge === null ? "尽きない" : base.depletedAge + "歳"}`) + `</div>`;
+  }
+  const rows = scn.rows;
+  html += `<div class="risk-chart">${lineChart(rows, [{ vals: base.rows.map(r => r.balance), cls: "series" }, { vals: scn.rows.map(r => r.balance), cls: "series-risk" }])}
+    <div class="legend"><span><i class="lg-main"></i>通常の場合</span><span><i class="lg-risk"></i>${label}</span></div></div>`;
+  // 4つのケースの一覧(いま起きた場合)
+  const cases = [["me", "death"], ["spouse", "death"], ["me", "disability"], ["spouse", "disability"]].map(([w, t]) => ({ w, t, r: riskCaseAt(w, t, 0) }));
+  html += `<h3 class="sub">いま起きた場合の、4つのケース</h3><div class="table-wrap"><table class="plain"><tr><th>ケース</th><th>追加で必要な保障額</th><th>資産が尽きる年齢</th></tr>` +
+    cases.map(c => c.r.valid ? `<tr><td>${whoName(c.w)}が${c.t === "death" ? "死亡" : "就業不能"}</td><td class="${c.r.shortfall ? "bad" : "good"}">${c.r.shortfall ? fmt(c.r.shortfall) + "万円" : "不足なし"}</td><td>${c.r.scn.depletedAge === null ? "尽きない" : c.r.scn.depletedAge + "歳"}</td></tr>`
+      : `<tr><td>${whoName(c.w)}が${c.t === "death" ? "死亡" : "就業不能"}</td><td colspan="2" class="hint">配偶者を含めると確認できます</td></tr>`).join("") + `</table></div>`;
+  html += `<details class="inner"><summary>年ごとの収支(この場合)</summary><div class="table-wrap"><table class="plain"><tr><th>年齢</th><th>給与</th><th>年金(手取り)</th><th>遺族・障害年金</th><th>保険の給付</th><th>支出合計</th><th>年間収支</th><th>資産(通常)</th><th>資産(この場合)</th></tr>` +
+    rows.filter(r => r.age >= info.evtMyAge - 1).map((r, i) => { const b = base.rows.find(x => x.age === r.age); return `<tr><td>${r.age}</td><td>${fmt(r.salary + r.spouseSalary)}</td><td>${fmt(r.pension)}</td><td>${fmt(r.benefit)}</td><td>${fmt(r.insIncome)}</td><td>${fmt(r.outgoTotal)}</td><td class="${r.net < 0 ? "bad" : ""}">${fmt(r.net)}</td><td>${fmt(b.balance)}</td><td class="${r.balance < 0 ? "bad" : ""}">${fmt(r.balance)}</td></tr>`; }).join("") + `</table></div></details>`;
+  html += `<p class="hint">遺族年金・障害年金は、制度にもとづく目安です(中高齢寡婦加算、配偶者の加給年金、年収による制限、再婚などは含みません)。保険金・年金は、税金がかからない前提で入れています。実際の金額は、年金事務所や加入中の保険会社で確認してください。</p>`;
+  out.innerHTML = html;
+}
+
 let result;
 function update() {
   if (state.endAge < state.age) state.endAge = state.age;
   state.living = state.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
   $("livingTotal").textContent = `月額合計 ${(state.living / 12).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円 / 年額 ${fmt(state.living)}万円`;
   result = LifePlan.simulate(state);
-  renderVerdict(result); renderCards(result); renderChart(result.rows); renderTable(result.rows);
+  renderRisk(); renderVerdict(result); renderCards(result); renderChart(result.rows); renderTable(result.rows);
   const cashSum = state.assets.filter(x => x.type !== "invest").reduce((t, x) => t + x.amount, 0);
   $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円(預貯金 ${fmt(cashSum)}万円 / 投資 ${fmt(result.assetTotal - cashSum)}万円)` +
     (result.monthlyContrib ? ` / 毎月の積立 ${result.monthlyContrib.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : "") +
@@ -377,6 +460,11 @@ $("childForm").addEventListener("submit", ev => {
 $("addLiving").onclick = () => {
   state.livingItems.push({ name: "", monthly: 0 }); refresh();
   const names = $("livingRows").querySelectorAll("input:not([type])"); names[names.length - 1].focus();
+};
+$("riskBox").addEventListener("toggle", renderRisk);
+$("addPolicy").onclick = () => {
+  state.policies.push({ name: "生命保険", who: "me", death: 3000, incomeProtect: 0, incomeUntil: 60, disabilityBenefit: 0, premium: 0 });
+  refresh();
 };
 $("addIncome").onclick = () => {
   state.incomeChanges.push({ name: "収入の変化", who: "me", from: state.age + 5, to: 0, income: Math.round(state.income * 0.8 / 10) * 10, raise: 0 });

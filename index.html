@@ -269,6 +269,23 @@
       </form>
     </details>
 
+    <details><summary>🛡️ 現在の保障(生命保険など)</summary>
+      <p class="hint">加入中の保険のうち、家計を守るもの(死亡保険金・収入保障保険・就業不能保険)を入れます。結果の「万が一のとき」で、保障が足りているか確認できます。医療保険・がん保険などの入院・手術の給付は、ここでは扱いません。</p>
+      <div id="policyList" class="item-list"></div>
+      <button type="button" id="addPolicy" class="secondary">+ 保険・保障を追加</button>
+      <h3 class="sub">万が一の設定</h3>
+      <div class="grid">
+        <label>葬儀費用(万円)<input type="number" data-k="protection.funeral" step="10"></label>
+        <label>亡くなったあとの生活費(%)<input type="number" data-k="protection.livingRatio" step="5" min="30" max="100"></label>
+        <label>就業不能のときの収入の減り方(%)<input type="number" data-k="protection.disabilityLossRate" step="10" min="0" max="100"></label>
+        <label>就業不能のときの追加の医療費(月額・万円)<input type="number" data-k="protection.disabilityMedical" step="1" min="0"></label>
+        <label>就業不能の期間(年・0=退職まで)<input type="number" data-k="protection.disabilityYears" min="0" max="40"></label>
+        <label>住宅ローンの債務者<select data-k="protection.loanHolder"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
+      </div>
+      <label class="check"><input type="checkbox" data-k="protection.dankin"> 住宅ローンは団信(団体信用生命保険)に加入している(債務者が亡くなるとローンの残りが完済される)</label>
+      <label class="check"><input type="checkbox" data-k="protection.disabilityPension"> 就業不能のとき、障害年金(2級の目安)を受け取る前提にする</label>
+    </details>
+
     <details><summary>🏠 住居</summary>
       <div class="grid">
         <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
@@ -340,6 +357,15 @@
         <button type="button" id="exportCsv" class="secondary">CSV出力</button>
       </div>
     </div>
+    <details id="riskBox"><summary>🛡️ 万が一のとき(死亡・就業不能)</summary>
+      <p class="hint">本人または配偶者に万が一のことがあった場合の家計を確認します。保険の内容は「現在の保障」に入れてください。</p>
+      <div class="grid">
+        <label>誰に起こる?<select data-k="riskView.who"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
+        <label>何が起こる?<select data-k="riskView.type"><option value="death">死亡</option><option value="disability">長期の就業不能(病気・ケガ)</option></select></label>
+        <label>その人の、発生時の年齢<input type="number" data-k="riskView.age" placeholder="現在の年齢" min="0" max="100"></label>
+      </div>
+      <div id="riskOut"></div>
+    </details>
     <details id="tableBox" open><summary>📋 キャッシュフロー表</summary>
       <div class="table-wrap"><table id="table"></table></div>
     </details>

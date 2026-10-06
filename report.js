@@ -161,6 +161,37 @@ function buildReport() {
     <div class="rp-chart"><h3>資産推移グラフ</h3>${chartAssets(rows, 1040, 420)}${rpLegend([[RP.cats[0], "預貯金"], [RP.cats[1], "投資"], [RP.ink, "資産合計", true]])}</div>`);
   add(sum);
 
+  // 万が一のときの家計(いま起きた場合の4つのケース)
+  {
+    const pg = rpPage("万が一のときの家計");
+    const cases = [["me", "death"], ["spouse", "death"], ["me", "disability"], ["spouse", "disability"]].map(([w, t]) =>
+      ({ w, t, r: LifePlan.riskSummary(S, { type: t, who: w, age: w === "me" ? S.age : S.spouse.age }) }));
+    const nm = w => (w === "me" ? "本人" : "配偶者");
+    const rowsHtml = cases.map(({ w, t, r }) => {
+      const label = `${nm(w)}が${t === "death" ? "死亡した" : "長期の就業不能になった"}場合(${w === "me" ? S.age : S.spouse.age}歳)`;
+      if (!r.valid) return `<tr><td>${label}</td><td colspan="5" class="c">配偶者を含めると確認できます</td></tr>`;
+      const i = r.info, okAll = r.scn.depletedAge === null;
+      const one = t === "death" ? `保険金 ${rpMoney(i.lump)}<br>葬儀 -${rpMoney(i.funeral)}` : "-";
+      const pen = t === "death" ? `${rpMoney(i.survivorBasic + i.survivorKosei)}/年` : `${rpMoney(i.disabilityPension)}/年`;
+      const ins = t === "death" ? (i.incomeProtect ? `収入保障 ${rpMoney(i.incomeProtect)}/年` : "-") : (i.benefit ? `就業不能保険 ${rpMoney(i.benefit)}/年` : "-");
+      return `<tr><td>${label}</td><td class="n">${one}</td><td class="n">${pen}</td><td class="n">${ins}</td>` +
+        `<td class="n" style="${okAll ? "color:#0a7a4d" : "color:#c1272d;font-weight:700"}">${okAll ? "不足なし" : "約" + rpMoney(r.shortfall)}</td><td class="c">${okAll ? "尽きない" : r.scn.depletedAge + "歳"}</td></tr>`;
+    }).join("");
+    pg.querySelector(".rp-foot").insertAdjacentHTML("beforebegin", `
+      <div class="rp-card" style="margin-top:12px"><h3>いま起きた場合の、家計への影響</h3><div class="rp-body">
+        <table class="rp-t"><tr><th style="width:30%">ケース</th><th>一時金</th><th>遺族年金・障害年金</th><th>保険の給付</th><th>追加で必要な保障額</th><th>資産が尽きる年齢</th></tr>${rowsHtml}</table>
+        <p class="rp-note">「追加で必要な保障額」は、万が一の発生時に追加で受け取れば、${S.endAge}歳まで資産が尽きなくなる最小の金額です。「不足なし」は、現在の保障で足りる見込みを表します。</p>
+      </div></div>
+      <div class="rp-card" style="margin-top:12px"><h3>試算の前提</h3><div class="rp-body" style="font-size:12.5px;line-height:1.8">
+        <ul style="margin:2px 0 0 0;padding:0 0 0 20px;list-style:disc">
+          <li><b>死亡</b>: 亡くなった方の給与・年金・退職金が止まり、生活費は${S.protection.livingRatio}%になります。死亡保険金・収入保障保険・遺族年金(遺族基礎年金+遺族厚生年金)が入り、葬儀費用${rpMoney(S.protection.funeral)}がかかります。</li>
+          <li><b>団信</b>: ${S.protection.dankin ? `加入(債務者: ${nm(S.protection.loanHolder)})。債務者が亡くなると、住宅ローンの残りが完済されます。` : "加入していない前提です。ローンは遺族が返済を続けます。"}</li>
+          <li><b>就業不能</b>: 収入が${S.protection.disabilityLossRate}%減り、${S.protection.disabilityYears > 0 ? S.protection.disabilityYears + "年間" : "退職年齢まで"}続くものとします。追加の医療費(月${S.protection.disabilityMedical}万円)がかかり、就業不能保険${S.protection.disabilityPension ? "と障害年金(2級の目安)" : ""}が入ります。</li>
+          <li>遺族年金・障害年金は、制度にもとづく目安です。中高齢寡婦加算、配偶者の加給年金、年収による制限、再婚などは含みません。保険金・年金は、税金がかからない前提です。</li>
+        </ul></div></div>`);
+    add(pg);
+  }
+
   // 3〜. 入力データ一覧(2列に流し込み、はみ出したら次のページへ)
   const cards = [];
   const age = (a) => a < 0 ? `${-a}年後に誕生予定` : `${a}歳`;
@@ -186,6 +217,13 @@ function buildReport() {
   if (S.incomeChanges.length) cards.push(rpCard("収入の変化", rpTable(["内容", "対象", "期間", "年間手取り", "昇給率"], [...S.incomeChanges].sort((a, b) => a.from - b.from).map(c =>
     [esc(c.name || "収入の変化"), c.who === "spouse" ? "配偶者" : "本人", `${c.from}歳〜${c.to > 0 ? c.to + "歳" : "退職まで"}`, rpMoney(c.income), `${c.raise || 0}%`]), { align: ["", "c", "c", "n", "n"] }) +
     '<p class="rp-note">期間外は、元の収入(基本設定の年収と昇給率)に戻ります。</p>'));
+  {
+    const pr = S.protection, hold = w => (w === "me" ? "本人" : "配偶者");
+    const pol = S.policies.length ? rpTable(["名称", "被保険者", "死亡保険金", "収入保障(月額)", "就業不能(月額)", "保険料(月額)"], S.policies.map(x =>
+      [esc(x.name || "保険"), hold(x.who), x.death ? rpMoney(x.death) : "-", x.incomeProtect ? `${x.incomeProtect}万円(〜${x.incomeUntil}歳)` : "-", x.disabilityBenefit ? `${x.disabilityBenefit}万円` : "-", x.premium ? `${x.premium}万円` : "-"]),
+      { align: ["", "c", "n", "n", "n", "n"] }) : '<p class="rp-note" style="margin:0">登録なし</p>';
+    cards.push(rpCard("現在の保障", pol + `<p class="rp-note">団信: ${pr.dankin ? "加入(債務者: " + hold(pr.loanHolder) + ")" : "未加入"} / 葬儀費用 ${rpMoney(pr.funeral)} / 死亡後の生活費 ${pr.livingRatio}%</p>`));
+  }
   const asset = S.assets.map(a => [esc(a.name), a.type === "invest" ? "投資" : "預貯金", rpMoney(a.amount), `${a.rate}%`, a.monthly ? `${a.monthly}万円/月` : "-", a.monthly ? `〜${a.until > 0 ? a.until : S.retireAge}歳` : "-"]);
   asset.push({ sum: true, cells: ["合計", "", rpMoney(R.assetTotal), "", R.monthlyContrib ? `${Math.round(R.monthlyContrib * 10) / 10}万円/月` : "-", ""] });
   cards.push(rpCard("現在の資産・毎月の積立", rpTable(["口座", "種類", "金額", "利回り", "積立", "積立期間"], asset, { align: ["", "c", "n", "n", "n", "c"] })));
@@ -301,6 +339,7 @@ function buildReport() {
       <li style="margin:0 0 4px">公的年金は、基礎年金の満額と厚生年金の計算式による簡易な見積もりです(加給年金・経過的加算・年金額の改定は含みません)。正確な見込額は「ねんきんネット」等でご確認ください。</li>
       <li style="margin:0 0 4px">運用利回りは名目値で、運用にかかる税金・手数料は含みません。物価上昇率は生活費などの支出に反映しています(年金額は物価に連動させていません)。</li>
       <li style="margin:0 0 4px">資産は口座ごとに管理しています。毎月の積立は各口座へ積み増し、収支の余りは最初の「預貯金」口座に入れ、不足分は預貯金 → 投資の順に取り崩す前提です。</li>
+      <li style="margin:0 0 4px">万が一の試算(死亡・就業不能)の遺族年金・障害年金は、制度にもとづく目安です。個別の事情(加算・年収制限・再婚など)は含みません。正確な金額は、年金事務所や保険会社で確認してください。</li>
       <li style="margin:0 0 4px">学費・養育費は平均的な目安の金額です。住宅ローン控除・繰り上げ返済・金利の見直し・住み替え・介護・相続などは含みません。</li>
       <li style="margin:0 0 4px">重要な意思決定の際は、ファイナンシャルプランナーなどの専門家にご相談ください。</li>
     </ul></div></div>`);

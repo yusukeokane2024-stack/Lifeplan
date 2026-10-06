@@ -29,21 +29,28 @@
   // 公的年金の概算(年額・万円)。令和7年度の満額・乗率をもとにした目安で、物価・賃金スライドや加給年金等は含まない。
   const BASIC_FULL = 83.1;      // 老齢基礎年金(満額・40年加入)
   const KOUSEI_RATE = 0.005481; // 老齢厚生年金の乗率(平均標準報酬額 × 乗率 × 加入月数)
-  function estimatePension(o) {
-    // o: { job: "employee" | "self" | "none", startAge, kouseiEnd(0=退職まで), avgGross, retireAge, pensionAge }
-    let total = BASIC_FULL; // 20〜60歳の40年間、保険料を納付した(または第3号)前提
+  const KID_ADD12 = 23.93;      // 遺族基礎・障害基礎年金の子の加算(第1・2子、1人あたり年額)
+  const KID_ADD3 = 7.97;        // 同(第3子以降)
+  // 基礎年金・厚生年金(報酬比例)と、繰上げ・繰下げの係数
+  function pensionParts(o) {
+    let kosei = 0;
     if (o.job === "employee") {
       // 会社員を途中でやめた場合(kouseiEnd)は、その年齢までが厚生年金の加入期間
       const end = o.kouseiEnd > 0 ? Math.min(o.kouseiEnd, o.retireAge) : o.retireAge;
       const months = Math.max(0, (Math.min(end, 70) - o.startAge) * 12);
       const avgMonthly = Math.min(o.avgGross / 12, 100); // 標準報酬(賞与込み)の上限をざっくり反映
-      total += avgMonthly * KOUSEI_RATE * months;
+      kosei = avgMonthly * KOUSEI_RATE * months;
     }
     // 繰上げ: 1か月あたり-0.4%(最大60か月) / 繰下げ: 1か月あたり+0.7%(最大120か月)
     const diff = Math.max(60, Math.min(75, o.pensionAge)) - 65;
-    total *= diff < 0 ? 1 + 0.004 * diff * 12 : 1 + 0.007 * diff * 12;
-    return Math.round(total * 10) / 10;
+    return { basic: BASIC_FULL, kosei, factor: diff < 0 ? 1 + 0.004 * diff * 12 : 1 + 0.007 * diff * 12 };
   }
+  function estimatePension(o) {
+    // o: { job: "employee" | "self" | "none", startAge, kouseiEnd(0=退職まで), avgGross, retireAge, pensionAge }
+    const t = pensionParts(o); // 20〜60歳の40年間、保険料を納付した(または第3号)前提
+    return Math.round((t.basic + t.kosei) * t.factor * 10) / 10;
+  }
+
   // 公的年金の手取り率(%)の目安。年金額(額面・年額・万円)が多いほど、税金・国民健康保険料・介護保険料の割合が増える。
   // 65歳以上・公的年金のみ・扶養なしの概算で、自治体や家族構成によって前後する。
   const PENSION_NET_TABLE = [[0, 100], [100, 97], [150, 94], [200, 91.5], [300, 88], [400, 85.5], [600, 82]];
@@ -131,24 +138,88 @@
     };
     const debtStates = debts.map(d => loanStatus(d, p.nowYear || new Date().getFullYear()));
     let depletedAge = null, prevBalance = assetTotal;
+    // 万が一(本人・配偶者の死亡 / 長期の就業不能)。sc.age は、その人本人の、発生時の年齢
+    const prot = { funeral: 200, livingRatio: 75, disabilityLossRate: 100, disabilityMedical: 10, disabilityYears: 0, disabilityPension: true, dankin: true, loanHolder: "me", ...(p.protection || {}) };
+    const policies = Array.isArray(p.policies) ? p.policies : [];
+    let sc = p.scenario || null;
+    if (sc && (sc.who === "spouse" || sc.type === "death") && !sp) sc = null; // 配偶者がいないと、配偶者の万が一も、死亡後の遺族も成り立たない
+    const evtMyAge = sc ? (sc.who === "me" ? sc.age : sc.age - sp.age + p.age) : null;
+    const person = who => (who === "me" ? p : sp);
+    const partsOf = o => { const t = pensionParts(o); return { kosei: t.kosei * t.factor }; };
+    let scenarioInfo = null;
 
     for (let age = p.age; age <= p.endAge; age++) {
       const n = age - p.age;
       const working = age < p.retireAge;
       const infl = Math.pow(1 + p.inflation / 100, n);
 
-      const salary = working ? salaryOf("me", p.income, p.raise, age, n, p.retireAge) : 0;
-      let pension = age >= p.pensionAge ? myPensionNet : 0;
-      let severance = age === p.retireAge ? p.severance : 0;
-      let spouseSalary = 0, spouseAge = null;
+      let salary = working ? salaryOf("me", p.income, p.raise, age, n, p.retireAge) : 0;
+      let myPen = age >= p.pensionAge ? myPensionNet : 0;
+      let mySev = age === p.retireAge ? p.severance : 0;
+      let spouseSalary = 0, spouseAge = null, spPen = 0, spSev = 0;
       if (sp) {
         spouseAge = sp.age + n;
         if (spouseAge < sp.retireAge) spouseSalary = salaryOf("spouse", sp.income, sp.raise, spouseAge, n, sp.retireAge);
-        if (spouseAge >= sp.pensionAge) pension += spousePensionNet;
-        if (spouseAge === sp.retireAge) severance += sp.severance;
+        if (spouseAge >= sp.pensionAge) spPen = spousePensionNet;
+        if (spouseAge === sp.retireAge) spSev = sp.severance;
       }
+      const ageOf = who => (who === "me" ? age : spouseAge);
 
-      const living = (working ? p.living : p.living * (p.retireLivingRatio / 100)) * infl;
+      // ---- 万が一の影響(収入面) ----
+      let benefit = 0, insIncome = 0, riskCash = 0, riskCost = 0, livingMult = 1; const riskNames = [];
+      const active = !!sc && age >= evtMyAge, evtYear = !!sc && age === evtMyAge;
+      let dankinNow = false;
+      if (active) {
+        const D = person(sc.who), Sv = person(sc.who === "me" ? "spouse" : "me"), dAge = ageOf(sc.who), sAge = ageOf(sc.who === "me" ? "spouse" : "me");
+        const kids = p.children.filter(c => { const ca = c.age + n; return ca >= 0 && ca <= 17; }).length; // 18歳の年度末まで(目安)
+        const kidAdd = k => Math.min(k, 2) * KID_ADD12 + Math.max(0, k - 2) * KID_ADD3;
+        const mine = policies.filter(x => x.who === sc.who);
+        // 厚生年金の報酬比例(平均年収と加入月数。在職中の発生は、300月に満たなくても300月とみなす)
+        const koseiMonths = Math.max(0, (Math.min(sc.age, D.kouseiEnd > 0 ? D.kouseiEnd : D.retireAge, 70) - D.startAge) * 12);
+        const workingAtEvent = sc.age < D.retireAge;
+        const koseiBase = D.job === "employee" ? Math.min(D.avgGross / 12, 100) * KOUSEI_RATE : 0;
+        if (sc.type === "death") {
+          if (sc.who === "me") { salary = 0; myPen = 0; mySev = 0; } else { spouseSalary = 0; spPen = 0; spSev = 0; }
+          livingMult = prot.livingRatio / 100;
+          const basicSurv = kids > 0 ? BASIC_FULL + kidAdd(kids) : 0;                 // 遺族基礎年金(18歳未満の子がいる間)
+          const months = workingAtEvent ? Math.max(300, koseiMonths) : koseiMonths;
+          let koseiSurv = months >= 300 ? koseiBase * months * 0.75 : 0;              // 遺族厚生年金(報酬比例の3/4)
+          if (sAge >= Sv.pensionAge) koseiSurv = Math.max(0, koseiSurv - partsOf(Sv).kosei); // 自分の老齢厚生年金が出る年齢からは、その分を差し引く
+          benefit += basicSurv + koseiSurv;
+          for (const x of mine) if (x.incomeProtect > 0 && dAge <= (x.incomeUntil || 0)) insIncome += x.incomeProtect * 12; // 収入保障保険
+          if (evtYear) {
+            riskCash -= mine.reduce((t, x) => t + (x.death || 0), 0);                 // 死亡保険金(一時金)
+            riskCost += prot.funeral;                                                 // 葬儀費用
+            riskNames.push("万が一(" + (sc.who === "me" ? "本人" : "配偶者") + "死亡)");
+            dankinNow = prot.dankin && prot.loanHolder === sc.who;                    // 団信: ローンの残りが消える
+            scenarioInfo = { type: "death", who: sc.who, evtMyAge, lump: mine.reduce((t, x) => t + (x.death || 0), 0), funeral: prot.funeral,
+              survivorBasic: basicSurv, survivorKosei: koseiSurv, incomeProtect: mine.reduce((t, x) => t + (x.incomeProtect > 0 && dAge <= (x.incomeUntil || 0) ? x.incomeProtect * 12 : 0), 0),
+              loanCleared: 0, livingRatio: prot.livingRatio };
+          }
+        } else { // 就業不能
+          const end = prot.disabilityYears > 0 ? sc.age + prot.disabilityYears : D.retireAge;
+          if (dAge < end) {
+            const k = 1 - prot.disabilityLossRate / 100;
+            if (sc.who === "me") salary *= k; else spouseSalary *= k;
+            for (const x of mine) insIncome += (x.disabilityBenefit || 0) * 12;       // 就業不能保険
+            let dp = 0;
+            if (prot.disabilityPension) {                                             // 障害年金(2級の目安)
+              dp = BASIC_FULL + kidAdd(kids);
+              if (D.job === "employee" && workingAtEvent) dp += koseiBase * Math.max(300, koseiMonths);
+              benefit += dp;
+            }
+            riskCost += prot.disabilityMedical * 12 * infl;                           // 追加の医療費
+            if (evtYear) riskNames.push("万が一(" + (sc.who === "me" ? "本人" : "配偶者") + "が就業不能)");
+            if (evtYear) scenarioInfo = { type: "disability", who: sc.who, evtMyAge, lump: 0, disabilityPension: dp, benefit: mine.reduce((t, x) => t + (x.disabilityBenefit || 0) * 12, 0),
+              medical: prot.disabilityMedical * 12, lossRate: prot.disabilityLossRate };
+          }
+        }
+        if (evtYear && sc.extra) riskCash -= sc.extra; // 不足額を求めるための仮の追加資金
+      }
+      let pension = myPen + spPen;
+      let severance = mySev + spSev;
+
+      const living = (working ? p.living : p.living * (p.retireLivingRatio / 100)) * infl * livingMult;
 
       // 住み替え(この年齢の分を先に反映)
       let moveCash = 0; const moveNames = [];
@@ -163,6 +234,10 @@
           cur = { kind: "own", principal: Math.max(0, m.price - m.down), rate: m.rate, years: m.years, startAge: age, upkeep: m.upkeep };
         } else cur = { kind: "rent", rent: m.rent };
         moveNames.push(m.name || "住み替え");
+      }
+      if (dankinNow && cur.kind === "own") { // 団信: 債務者が亡くなると、ローンの残りが保険金で完済される
+        if (scenarioInfo) scenarioInfo.loanCleared = loanBalance(cur.principal, cur.rate, cur.years, age - cur.startAge);
+        cur = { ...cur, principal: 0 };
       }
       // 住居費: 賃貸=家賃 / 持ち家=ローン返済(返済期間中)+維持費(物価に連動)
       let housing = 0;
@@ -182,13 +257,13 @@
       for (const st of debtStates) if (n < st.remaining) debt += st.payment;
 
       const events = p.events.filter(e => e.age === age);
-      const eventCost = events.reduce((s, e) => s + e.amount, 0) + moveCash;
+      const eventCost = events.reduce((s, e) => s + e.amount, 0) + moveCash + riskCash + riskCost;
       // 運用益(年初の残高に対して)→ 積立(年末に積み増し)→ 収支の余り/不足を口座に反映
       let invest = 0;
       for (const x of buckets) if (x.amount > 0) { const i = x.amount * x.rate / 100; x.amount += i; invest += i; }
       let contrib = 0;
       for (const x of buckets) if (age < x.until && x.monthly > 0) { x.amount += x.monthly * 12; contrib += x.monthly * 12; }
-      const cashIn = salary + spouseSalary + pension + severance;
+      const cashIn = salary + spouseSalary + pension + severance + benefit + insIncome;
       const outgoTotal = living + housing + child + debt + eventCost;
       const incomeTotal = cashIn; // 現金で入る収入。運用益は資産に積み上がるだけなので、収入には含めない
       const flow = cashIn - outgoTotal - contrib;
@@ -205,23 +280,39 @@
 
       const names = events.map(e => e.name);
       for (const c of changes) if ((c.who === "me" ? age : spouseAge) === c.from) names.push(c.name || "収入の変化");
-      names.push(...moveNames);
+      names.push(...moveNames, ...riskNames);
       rows.push({
-        age, spouseAge, salary, spouseSalary, pension, severance, invest,
+        age, spouseAge, salary, spouseSalary, pension, severance, invest, benefit, insIncome,
         incomeTotal, living, housing, child, debt, eventCost, outgoTotal, contrib,
         net: incomeTotal - outgoTotal, assetChange, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
       });
     }
     const atRetire = rows.find(r => r.age === p.retireAge);
     return {
-      rows, depletedAge, assetTotal, returnRate, monthlyContrib, myPension, spousePension, myPensionNet, spousePensionNet,
+      rows, depletedAge, scenarioInfo, assetTotal, returnRate, monthlyContrib, myPension, spousePension, myPensionNet, spousePensionNet,
       debtTotal: debtStates.reduce((s, st) => s + st.balance, 0), debtStates,
       retireBalance: atRetire ? atRetire.balance : null,
       finalBalance: rows[rows.length - 1].balance,
     };
   }
 
-  const api = { simulate, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost };
+  // 万が一のまとめ。通常の場合との比較と、「保障があといくら足りないか(追加で必要な額)」を求める。
+  // 不足額 = 発生時に追加で受け取れば、最後まで資産が尽きなくなる最小の金額(万円)。
+  function riskSummary(p, scenario) {
+    const base = simulate({ ...p, scenario: null });
+    const scn = simulate({ ...p, scenario });
+    if (!scn.scenarioInfo) return { valid: false, base, scn, shortfall: 0 };
+    const ok = extra => simulate({ ...p, scenario: { ...scenario, extra }, }).depletedAge === null;
+    let shortfall = 0;
+    if (scn.depletedAge !== null) {
+      let lo = 0, hi = 300000;
+      if (!ok(hi)) shortfall = hi;
+      else { for (let i = 0; i < 40 && hi - lo > 0.5; i++) { const mid = (lo + hi) / 2; ok(mid) ? (hi = mid) : (lo = mid); } shortfall = Math.ceil(hi); }
+    }
+    return { valid: true, base, scn, shortfall, info: scn.scenarioInfo };
+  }
+
+  const api = { simulate, riskSummary, pensionParts, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);
