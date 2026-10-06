@@ -280,10 +280,10 @@ function renderVerdict(r) {
 const COLS = [
   ["年齢", r => r.age], ["配偶者年齢", r => r.spouseAge ?? ""],
   ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension],
-  ["退職金", r => r.severance], ["運用益", r => r.invest], ["収入合計", r => r.incomeTotal],
+  ["退職金", r => r.severance], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
   ["イベント等", r => r.eventCost], ["支出合計", r => r.outgoTotal],
-  ["年間収支", r => r.net], ["積立額", r => r.contrib], ["資産残高", r => r.balance], ["預貯金残高", r => r.cashBal], ["投資残高", r => r.investBal], ["イベント名", r => r.eventNames],
+  ["年間収支(現金)", r => r.net], ["運用益(含み益)", r => r.invest], ["資産の増減", r => r.assetChange], ["積立額", r => r.contrib], ["資産残高", r => r.balance], ["預貯金残高", r => r.cashBal], ["投資残高", r => r.investBal], ["イベント名", r => r.eventNames],
 ];
 const num = v => typeof v === "number" ? Math.round(v) : v;
 
@@ -291,7 +291,7 @@ function renderTable(rows) {
   $("table").innerHTML =
     "<tr>" + COLS.map(c => `<th>${c[0]}</th>`).join("") + "</tr>" +
     rows.map(r => "<tr>" + COLS.map(([name, f], i) => {
-      const v = f(r), cls = (name === "資産残高" || name === "年間収支") && v < 0 ? ' class="bad"' : "";
+      const v = f(r), cls = (name === "資産残高" || name === "年間収支(現金)" || name === "資産の増減") && v < 0 ? ' class="bad"' : "";
       return `<td${cls}>${typeof v === "number" ? fmt(v) : esc(v)}</td>`;
     }).join("") + "</tr>").join("");
 }

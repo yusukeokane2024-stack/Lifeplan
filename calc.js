@@ -130,7 +130,7 @@
       return v;
     };
     const debtStates = debts.map(d => loanStatus(d, p.nowYear || new Date().getFullYear()));
-    let depletedAge = null;
+    let depletedAge = null, prevBalance = assetTotal;
 
     for (let age = p.age; age <= p.endAge; age++) {
       const n = age - p.age;
@@ -190,7 +190,7 @@
       for (const x of buckets) if (age < x.until && x.monthly > 0) { x.amount += x.monthly * 12; contrib += x.monthly * 12; }
       const cashIn = salary + spouseSalary + pension + severance;
       const outgoTotal = living + housing + child + debt + eventCost;
-      const incomeTotal = cashIn + invest;
+      const incomeTotal = cashIn; // 現金で入る収入。運用益は資産に積み上がるだけなので、収入には含めない
       const flow = cashIn - outgoTotal - contrib;
       if (flow >= 0) sink.amount += flow;
       else {
@@ -199,6 +199,7 @@
         if (need > 0) sink.amount -= need;
       }
       const balance = sumOf(x => x.amount);
+      const assetChange = balance - prevBalance; prevBalance = balance; // 資産の増減 = 年間収支(現金) + 運用益
       if (balance < 0 && depletedAge === null) depletedAge = age;
       const cashBal = buckets.filter(x => x.cash).reduce((t, x) => t + x.amount, 0);
 
@@ -208,7 +209,7 @@
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest,
         incomeTotal, living, housing, child, debt, eventCost, outgoTotal, contrib,
-        net: incomeTotal - outgoTotal, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
+        net: incomeTotal - outgoTotal, assetChange, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
       });
     }
     const atRetire = rows.find(r => r.age === p.retireAge);

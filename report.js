@@ -249,12 +249,12 @@ function buildReport() {
     ...S.children.map((c, i) => ["l", esc(c.name || "子ども" + (i + 1)), (r, n) => c.age + n]),
     ["sec inc", "収入"],
     ["s", "給与(本人)", r => r.salary], ...(sp ? [["s", "給与(配偶者)", r => r.spouseSalary]] : []),
-    ["s", "年金(手取り)", r => r.pension], ["s", "退職金", r => r.severance], ["s", "運用益", r => r.invest], ["tot", "収入合計", r => r.incomeTotal],
+    ["s", "年金(手取り)", r => r.pension], ["s", "退職金", r => r.severance], ["tot", "収入合計", r => r.incomeTotal],
     ["sec out", "支出"],
     ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
     ["s", "イベント・その他", r => r.eventCost], ["tot", "支出合計", r => r.outgoTotal],
     ["sec bal", "収支・資産"],
-    ["s", "年間収支", r => r.net], ["s", "積立額(投資へ)", r => r.contrib], ["s", "預貯金残高", r => r.cashBal], ["s", "投資残高", r => r.investBal], ["tot", "資産合計", r => r.balance],
+    ["s", "年間収支(現金)", r => r.net], ["s", "運用益(含み益)", r => r.invest], ["s", "資産の増減", r => r.assetChange], ["s", "積立額(投資へ)", r => r.contrib], ["s", "預貯金残高", r => r.cashBal], ["s", "投資残高", r => r.investBal], ["tot", "資産合計", r => r.balance],
   ];
   const rh = Math.max(15, Math.min(22, Math.floor(600 / (rowDefs.length + 2))));
   const fs = rh >= 19 ? 12 : rh >= 17 ? 11 : 10;
@@ -279,7 +279,7 @@ function buildReport() {
 
   // グラフ
   const g1 = rpPage("グラフ 1");
-  g1.insertAdjacentHTML("beforeend", `<div class="rp-chart"><h3>キャッシュフローグラフ</h3><p class="sub">支出の内訳(積み上げ)と、収入合計(線)。単位:万円</p>${chartCashflow(rows, 1040, 270)}${rpLegend([...OUT_KEYS.map(([, l], i) => [RP.cats[i], l]), [RP.ink, "収入合計", true]])}</div>` +
+  g1.insertAdjacentHTML("beforeend", `<div class="rp-chart"><h3>キャッシュフローグラフ</h3><p class="sub">支出の内訳(積み上げ)と、現金で入る収入の合計(線)。単位:万円</p>${chartCashflow(rows, 1040, 270)}${rpLegend([...OUT_KEYS.map(([, l], i) => [RP.cats[i], l]), [RP.ink, "収入合計", true]])}</div>` +
     (R.assetTotal > 0 || rows.some(r => r.investBal > 1) ? `<div class="rp-chart"><h3>投資運用グラフ</h3><p class="sub">投資残高の内訳(元本=現在の投資+積立の累計)。単位:万円</p>${chartInvest(rows, 1040, 230, initInvest)}${rpLegend([[RP.cats[0], "元本"], [RP.cats[1], "運用収益"]])}</div>` : ""));
   add(g1);
   if (S.children.length) {
