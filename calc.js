@@ -56,13 +56,30 @@
     return r === 0 ? principal - P * k : principal * Math.pow(1 + r, k) - P * (Math.pow(1 + r, k) - 1) / r;
   }
 
+  // ローンの現在の状態。mode:"auto" は「借入額・借入した年(西暦)・返済期間(総年数)・金利」から、
+  // それ以外は「いまの残高・残り年数」から求める。k は返済開始から現在までの経過年数。
+  function loanStatus(o, nowYear) {
+    const rate = o.rate || 0;
+    if (o.mode === "auto") {
+      const term = Math.max(0, Math.round(o.term || 0)), borrow = o.borrow || 0;
+      const k = Math.max(0, Math.min(term, nowYear - Math.round(o.borrowYear || nowYear)));
+      return { principal: borrow, term, k, balance: loanBalance(borrow, rate, term, k), remaining: term - k, payment: annualPayment(borrow, rate, term) };
+    }
+    const years = Math.max(0, Math.round(o.years || 0)), bal = o.balance || 0;
+    return { principal: bal, term: years, k: 0, balance: bal, remaining: years, payment: annualPayment(bal, rate, years) };
+  }
+
   function simulate(p) {
     const sp = p.spouse && p.spouse.enabled ? p.spouse : null;
     const h = p.housing;
     // 住まいの状態: 賃貸(kind:"rent") か 持ち家(kind:"own": ローン+維持費)。住み替えで年ごとに切り替わる
-    let cur = h.type === "own"
-      ? { kind: "own", principal: h.ownLoan, rate: h.ownRate, years: h.ownYears, startAge: p.age, upkeep: h.ownMgmt * 12 + h.ownTax + h.ownRepair }
-      : { kind: "rent", rent: h.rent };
+    const nowYear = p.nowYear || new Date().getFullYear();
+    let cur = { kind: "rent", rent: h.rent };
+    if (h.type === "own") {
+      const st = loanStatus({ mode: h.ownMode === "auto" ? "auto" : "balance", borrow: h.ownBorrow, borrowYear: h.ownBorrowYear, term: h.ownTerm, rate: h.ownRate, balance: h.ownLoan, years: h.ownYears }, nowYear);
+      // 返済開始を「いまから k 年前」に置くことで、返済済みの年数がそのまま売却時の残債計算に使える
+      cur = { kind: "own", principal: st.principal, rate: h.ownRate, years: st.term, startAge: p.age - st.k, upkeep: h.ownMgmt * 12 + h.ownTax + h.ownRepair };
+    }
     // 住み替え: 「将来購入する」(従来の設定)も、最初の住み替えとして扱う
     const moves = [];
     if (h.type === "buy") moves.push({ age: h.buyAge, name: "住宅購入", type: "buy", price: h.price, down: h.down, closing: h.closing, rate: h.rate, years: h.years, upkeep: h.upkeep, salePrice: 0, sellCost: 0 });
@@ -83,6 +100,7 @@
     const returnRate = assetTotal > 0 ? sumOf(x => x.amount * x.rate) / assetTotal : 0; // 表示用の加重平均
     const monthlyContrib = sumOf(x => (p.age < x.until ? x.monthly : 0));
     const debts = Array.isArray(p.debts) ? p.debts : [];
+    const debtStates = debts.map(d => loanStatus(d, p.nowYear || new Date().getFullYear()));
     let depletedAge = null;
 
     for (let age = p.age; age <= p.endAge; age++) {
@@ -133,7 +151,7 @@
       }
 
       let debt = 0;
-      for (const d of debts) if (n < d.years) debt += annualPayment(d.balance, d.rate, d.years);
+      for (const st of debtStates) if (n < st.remaining) debt += st.payment;
 
       const events = p.events.filter(e => e.age === age);
       const eventCost = events.reduce((s, e) => s + e.amount, 0) + moveCash;
@@ -167,13 +185,13 @@
     const atRetire = rows.find(r => r.age === p.retireAge);
     return {
       rows, depletedAge, assetTotal, returnRate, monthlyContrib, myPension, spousePension,
-      debtTotal: debts.reduce((s, d) => s + d.balance, 0),
+      debtTotal: debtStates.reduce((s, st) => s + st.balance, 0), debtStates,
       retireBalance: atRetire ? atRetire.balance : null,
       finalBalance: rows[rows.length - 1].balance,
     };
   }
 
-  const api = { simulate, estimatePension, loanBalance, EDU_COURSES, annualPayment, eduCost };
+  const api = { simulate, estimatePension, loanBalance, loanStatus, EDU_COURSES, annualPayment, eduCost };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -130,8 +130,10 @@
       </label>
       <div id="wzRent"><label class="wz-field">毎月の家賃<span class="wz-input"><input type="number" id="wzRentM" min="0" step="0.5"><em>万円/月</em></span></label></div>
       <div id="wzOwn">
-        <label class="wz-field">住宅ローンの残高(完済済みは0)<span class="wz-input"><input type="number" data-k="housing.ownLoan" step="100"><em>万円</em></span></label>
-        <label class="wz-field">ローンの残り年数<span class="wz-input"><input type="number" data-k="housing.ownYears" min="0" max="50"><em>年</em></span></label>
+        <label class="wz-field">住宅ローンの借入額(完済済みは0)<span class="wz-input"><input type="number" data-k="housing.ownBorrow" step="100"><em>万円</em></span></label>
+        <label class="wz-field">ローンを借りた年(西暦)<span class="wz-input"><input type="number" data-k="housing.ownBorrowYear" min="1980" max="2100"><em>年</em></span></label>
+        <label class="wz-field">返済期間<span class="wz-input"><input type="number" data-k="housing.ownTerm" min="1" max="50"><em>年</em></span></label>
+        <label class="wz-field">金利<span class="wz-input"><input type="number" data-k="housing.ownRate" step="0.1"><em>%/年</em></span><small>いまの残高と毎年の返済額は、自動で計算します。わからないときは、そのままでもOKです。</small></label>
       </div>
       <div id="wzBuy">
         <label class="wz-field">何歳で買う予定ですか?<span class="wz-input"><input type="number" data-k="housing.buyAge" min="0" max="100"><em>歳</em></span></label>
@@ -206,15 +208,18 @@
         <button>+ 口座を追加</button>
       </form>
       <p class="hint" id="assetInfo"></p>
-      <h3 class="sub">既存のローン</h3>
+      <h3 class="sub">既存のローン(住宅ローン以外)</h3>
+      <p class="hint">借りた金額・年・金利・返済期間を入れると、<b>いまの残高と毎年の返済額は自動で計算</b>します。残高をご存じの場合は、各ローンの入力方法を切り替えられます。</p>
       <div id="debtList" class="item-list"></div>
       <form id="debtForm" class="item-form">
-        <input id="dbName" placeholder="ローン名(例: 奨学金)" required>
-        <input id="dbBalance" type="number" placeholder="残高(万円)" min="0" required>
+        <input id="dbName" placeholder="ローン名(例: 奨学金・自動車ローン)" required>
+        <input id="dbBorrow" type="number" placeholder="借入額(万円)" min="0" required>
+        <input id="dbYear" type="number" placeholder="借入した年(西暦)" min="1980" max="2100" required>
         <input id="dbRate" type="number" placeholder="金利(%)" step="0.1" required>
-        <input id="dbYears" type="number" placeholder="残り年数" min="1" required>
-        <button>追加</button>
+        <input id="dbTerm" type="number" placeholder="返済期間(総年数)" min="1" required>
+        <button>+ ローンを追加</button>
       </form>
+      <p class="hint" id="debtInfo"></p>
     </details>
 
     <details><summary>💑 配偶者</summary>
@@ -258,13 +263,25 @@
         <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
         <label id="rentLabel">家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
       </div>
-      <div class="grid" id="ownFields">
-        <label>住宅ローン残高<input type="number" data-k="housing.ownLoan" step="100"></label>
-        <label>ローン金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
-        <label>ローン残り年数<input type="number" data-k="housing.ownYears" min="0" max="50"></label>
-        <label>管理費・修繕積立金(月額・戸建ては0)<input type="number" data-k="housing.ownMgmt" step="0.5"></label>
-        <label>固定資産税・都市計画税(年額)<input type="number" data-k="housing.ownTax" step="1"></label>
-        <label>修繕・メンテナンス費(年額の平均)<input type="number" data-k="housing.ownRepair" step="5"></label>
+      <div id="ownFields">
+        <div class="grid">
+          <label>ローンの入力方法<select data-k="housing.ownMode"><option value="auto">借入時の条件から自動計算</option><option value="balance">いまの残高を直接入力</option></select></label>
+          <label>金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
+        </div>
+        <div class="grid" id="ownAuto">
+          <label>借入額(完済済みは0)<input type="number" data-k="housing.ownBorrow" step="100"></label>
+          <label>借入した年(西暦)<input type="number" data-k="housing.ownBorrowYear" min="1980" max="2100"></label>
+          <label>返済期間(総年数)<input type="number" data-k="housing.ownTerm" min="1" max="50"></label>
+        </div>
+        <div class="grid" id="ownBal">
+          <label>いまのローン残高<input type="number" data-k="housing.ownLoan" step="100"></label>
+          <label>ローン残り年数<input type="number" data-k="housing.ownYears" min="0" max="50"></label>
+        </div>
+        <div class="grid">
+          <label>管理費・修繕積立金(月額・戸建ては0)<input type="number" data-k="housing.ownMgmt" step="0.5"></label>
+          <label>固定資産税・都市計画税(年額)<input type="number" data-k="housing.ownTax" step="1"></label>
+          <label>修繕・メンテナンス費(年額の平均)<input type="number" data-k="housing.ownRepair" step="5"></label>
+        </div>
       </div>
       <div class="grid" id="buyFields">
         <label>購入年齢<input type="number" data-k="housing.buyAge" min="0" max="100"></label>

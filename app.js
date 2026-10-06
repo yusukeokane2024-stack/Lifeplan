@@ -18,6 +18,7 @@ const DEFAULTS = {
   childCost: 80,
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
+    ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
   moves: [],
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
@@ -39,7 +40,9 @@ function merge(s) {
   if (!Array.isArray(s.livingItems)) out.livingItems = typeof s.living === "number" ? [{ name: "生活費", monthly: Math.round(s.living / 12 * 10) / 10 }] : d.livingItems;
   // 資産の種類・積立の項目がない旧データを補う(利回りが低ければ預貯金、そうでなければ投資とみなす)
   out.assets = out.assets.map(a => ({ monthly: 0, until: 0, ...a, type: a.type || (a.rate < 1 ? "cash" : "invest") }));
-  out.debts = Array.isArray(s.debts) ? s.debts : [];
+  // 旧形式(ローン残高・残り年数を直接入力)は、そのまま「残高を直接入力」として引き継ぐ
+  if (s.housing && !s.housing.ownMode) out.housing.ownMode = "balance";
+  out.debts = (Array.isArray(s.debts) ? s.debts : []).map(d => ({ mode: "balance", ...d }));
   out.children = Array.isArray(s.children) ? s.children : [];
   out.moves = Array.isArray(s.moves) ? s.moves : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
@@ -110,6 +113,7 @@ function renderEditable(box, items, fields, onResort) {
     const head = document.createElement("div"); head.className = "item-head";
     const grid = document.createElement("div"); grid.className = "item-grid";
     fields.forEach((f, fi) => {
+      if (f.show && !f.show(item)) return; // 条件に合わない項目は表示しない
       let el;
       if (f.type === "select") {
         el = document.createElement("select");
@@ -148,9 +152,13 @@ const ASSET_FIELDS = [
 ];
 const DEBT_FIELDS = [
   { key: "name", type: "text" },
-  { key: "balance", type: "number", label: "残高(万円)", step: "10", min: 0 },
+  { key: "mode", type: "select", label: "入力方法", full: true, resort: true, options: [["auto", "借入時の条件から自動計算"], ["balance", "いまの残高を直接入力"]] },
+  { key: "borrow", type: "number", label: "借入額(万円)", step: "10", min: 0, show: d => d.mode === "auto" },
+  { key: "borrowYear", type: "number", label: "借入した年(西暦)", min: 1980, show: d => d.mode === "auto" },
+  { key: "term", type: "number", label: "返済期間(総年数)", min: 1, show: d => d.mode === "auto" },
   { key: "rate", type: "number", label: "金利(%/年)", step: "0.1" },
-  { key: "years", type: "number", label: "残り年数", min: 1 },
+  { key: "balance", type: "number", label: "いまの残高(万円)", step: "10", min: 0, show: d => d.mode !== "auto" },
+  { key: "years", type: "number", label: "残り年数", min: 0, show: d => d.mode !== "auto" },
 ];
 const CHILD_FIELDS = [
   { key: "name", type: "text" },
@@ -160,14 +168,14 @@ const CHILD_FIELDS = [
 const MOVE_FIELDS = [
   { key: "name", type: "text" },
   { key: "age", type: "number", label: "住み替える年齢", min: 0, resort: true },
-  { key: "type", type: "select", label: "新しい住まい", options: [["buy", "購入する(買い替え)"], ["rent", "賃貸に引っ越す"]] },
-  { key: "rent", type: "number", label: "新居の家賃(年額・賃貸の場合)", step: "10", min: 0 },
-  { key: "price", type: "number", label: "物件価格(購入の場合)", step: "100", min: 0 },
-  { key: "down", type: "number", label: "頭金(購入の場合)", step: "50", min: 0 },
-  { key: "closing", type: "number", label: "諸費用(購入の場合)", step: "10", min: 0 },
-  { key: "rate", type: "number", label: "ローン金利(%/年)", step: "0.1" },
-  { key: "years", type: "number", label: "返済年数", min: 1 },
-  { key: "upkeep", type: "number", label: "管理・修繕・税(年額)", step: "5", min: 0 },
+  { key: "type", type: "select", label: "新しい住まい", resort: true, options: [["buy", "購入する(買い替え)"], ["rent", "賃貸に引っ越す"]] },
+  { key: "rent", type: "number", label: "新居の家賃(年額)", step: "10", min: 0, show: m => m.type === "rent" },
+  { key: "price", type: "number", label: "物件価格", show: m => m.type === "buy", step: "100", min: 0 },
+  { key: "down", type: "number", label: "頭金", show: m => m.type === "buy", step: "50", min: 0 },
+  { key: "closing", type: "number", label: "諸費用", show: m => m.type === "buy", step: "10", min: 0 },
+  { key: "rate", type: "number", label: "ローン金利(%/年)", step: "0.1", show: m => m.type === "buy" },
+  { key: "years", type: "number", label: "返済年数", min: 1, show: m => m.type === "buy" },
+  { key: "upkeep", type: "number", label: "管理・修繕・税(年額)", step: "5", min: 0, show: m => m.type === "buy" },
   { key: "salePrice", type: "number", label: "旧居の売却価格(いま持ち家の場合)", step: "100", min: 0, full: true },
   { key: "sellCost", type: "number", label: "売却にかかる費用(仲介手数料など)", step: "10", min: 0, full: true },
 ];
@@ -201,7 +209,7 @@ function renderLists() {
   renderEditable($("moveList"), state.moves, MOVE_FIELDS, renderLists);
   renderEditable($("eventList"), state.events, EVENT_FIELDS, renderLists);
   renderEditable($("assetList"), state.assets, ASSET_FIELDS);
-  renderEditable($("debtList"), state.debts, DEBT_FIELDS);
+  renderEditable($("debtList"), state.debts, DEBT_FIELDS, renderLists);
   renderEditable($("childList"), state.children, CHILD_FIELDS);
 }
 
@@ -318,10 +326,20 @@ function update() {
   $("ownFields").style.display = ht === "own" ? "" : "none";
   $("rentLabel").style.display = ht === "own" ? "none" : "";
   const h = state.housing;
-  $("loanInfo").textContent = h.type === "buy"
-    ? `借入額 ${fmt(h.price - h.down)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(h.price - h.down, h.rate, h.years))}万円`
-    : h.type === "own"
-      ? `年間返済額 約${fmt(LifePlan.annualPayment(h.ownLoan, h.ownRate, h.ownYears))}万円(${h.ownYears}年間) / 返済後の年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円` : "";
+  $("ownAuto").style.display = h.ownMode === "balance" ? "none" : "";
+  $("ownBal").style.display = h.ownMode === "balance" ? "" : "none";
+  let loanText = "";
+  if (h.type === "buy") loanText = `借入額 ${fmt(h.price - h.down)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(h.price - h.down, h.rate, h.years))}万円`;
+  else if (h.type === "own") {
+    const st = LifePlan.loanStatus({ mode: h.ownMode === "balance" ? "balance" : "auto", borrow: h.ownBorrow, borrowYear: h.ownBorrowYear, term: h.ownTerm, rate: h.ownRate, balance: h.ownLoan, years: h.ownYears }, new Date().getFullYear());
+    loanText = st.payment > 0 && st.remaining > 0
+      ? `${h.ownMode === "balance" ? "入力された残高" : "自動計算: いまのローン残高"} 約${fmt(st.balance)}万円 / 年間返済額 約${fmt(st.payment)}万円(あと${st.remaining}年、${state.age + st.remaining}歳ごろに完済) / 返済後の年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円`
+      : `ローンは完済済み(返済なし) / 年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円`;
+  }
+  $("loanInfo").textContent = loanText;
+  $("debtInfo").textContent = state.debts.length
+    ? "いまの状況: " + state.debts.map((d, i) => { const st = result.debtStates[i]; return st.remaining > 0 ? `${d.name || "ローン"} 残高 約${fmt(st.balance)}万円・年${fmt(st.payment)}万円・あと${st.remaining}年` : `${d.name || "ローン"} 完済済み`; }).join(" / ")
+    : "";
   writeInputs(true);
   save();
   if (typeof afterUpdate === "function") afterUpdate();
@@ -349,7 +367,8 @@ $("assetForm").addEventListener("submit", ev => {
 });
 $("debtForm").addEventListener("submit", ev => {
   ev.preventDefault();
-  state.debts.push({ name: $("dbName").value.trim(), balance: parseFloat($("dbBalance").value), rate: parseFloat($("dbRate").value), years: parseInt($("dbYears").value, 10) });
+  state.debts.push({ name: $("dbName").value.trim(), mode: "auto", borrow: parseFloat($("dbBorrow").value), borrowYear: parseInt($("dbYear").value, 10),
+    rate: parseFloat($("dbRate").value), term: parseInt($("dbTerm").value, 10), balance: 0, years: 0 });
   ev.target.reset(); refresh();
 });
 $("eventForm").addEventListener("submit", ev => {

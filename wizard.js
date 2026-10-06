@@ -14,6 +14,10 @@ function assetByName(name, rate, type) {
 const isGeneratedChildren = () => state.children.every(c => /^子ども\d$/.test(c.name));
 
 function setupWizardInputs() {
+  // 借入額・借入年などを入力したら、自動計算モードにする(以前の「残高を直接入力」のままだと反映されないため)
+  ["ownBorrow", "ownBorrowYear", "ownTerm", "ownRate"].forEach(k => wz("wizard").querySelector(`[data-k="housing.${k}"]`).addEventListener("input", () => {
+    if (state.housing.ownMode !== "auto") { state.housing.ownMode = "auto"; update(); }
+  }));
   wz("wzName").addEventListener("input", e => { currentProfile().name = e.target.value; touchProfile(currentProfile()); updateProfileUI(); });
   wz("wzCash").addEventListener("input", e => { assetByName("預貯金", 0.1, "cash").amount = numVal(e.target); refresh(); });
   wz("wzInvest").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").amount = numVal(e.target); refresh(); });
