@@ -192,6 +192,11 @@ function buildReport() {
         ["管理費・修繕積立金", `${h.ownMgmt}万円/月`], ["固定資産税等", `${rpMoney(h.ownTax)}/年`], ["修繕・メンテナンス費", `${rpMoney(h.ownRepair)}/年`]]
     : [["住まい", `賃貸 → ${h.buyAge}歳で購入`], ["賃貸中の家賃", `${rpMoney(h.rent)}/年`], ["物件価格 / 頭金", `${rpMoney(h.price)} / ${rpMoney(h.down)}`], ["諸費用", rpMoney(h.closing)],
         ["借入額", rpMoney(h.price - h.down)], ["金利 / 返済年数", `${h.rate}% / ${h.years}年`], ["管理・修繕・税", `${rpMoney(h.upkeep)}/年`]];
+  for (const m of [...S.moves].sort((a, b) => a.age - b.age)) {
+    house.push([`${m.age}歳 ${esc(m.name || "住み替え")}`, (m.type === "buy"
+      ? `購入 ${rpMoney(m.price)}(頭金${rpMoney(m.down)}・${m.rate}%・${m.years}年)`
+      : `賃貸へ(家賃${rpMoney(m.rent)}/年)`) + (m.salePrice ? ` / 旧居を${rpMoney(m.salePrice)}で売却` : "")]);
+  }
   cards.push(rpCard("住居", rpTable(null, house, { kv: true })));
   // 子ども費用(養育費+学費、物価上昇込み)を子どもごとに集計
   const perChild = S.children.map((c, ci) => ({ name: c.name || "子ども" + (ci + 1), vals: rows.map((_, n) => {

@@ -48,13 +48,26 @@
     return person.pensionMode === "manual" ? person.pension : estimatePension(person);
   }
 
+  // 返済開始から k 年経過した時点のローン残高(annualPayment と同じ、年1回払いの前提)
+  function loanBalance(principal, ratePct, years, k) {
+    if (principal <= 0 || k >= years) return 0;
+    if (k <= 0) return principal;
+    const r = ratePct / 100, P = annualPayment(principal, ratePct, years);
+    return r === 0 ? principal - P * k : principal * Math.pow(1 + r, k) - P * (Math.pow(1 + r, k) - 1) / r;
+  }
+
   function simulate(p) {
     const sp = p.spouse && p.spouse.enabled ? p.spouse : null;
     const h = p.housing;
-    const buying = h.type === "buy";
-    const owning = h.type === "own";
-    const ownPayment = owning ? annualPayment(h.ownLoan, h.ownRate, h.ownYears) : 0;
-    const payment = buying ? annualPayment(h.price - h.down, h.rate, h.years) : 0;
+    // 住まいの状態: 賃貸(kind:"rent") か 持ち家(kind:"own": ローン+維持費)。住み替えで年ごとに切り替わる
+    let cur = h.type === "own"
+      ? { kind: "own", principal: h.ownLoan, rate: h.ownRate, years: h.ownYears, startAge: p.age, upkeep: h.ownMgmt * 12 + h.ownTax + h.ownRepair }
+      : { kind: "rent", rent: h.rent };
+    // 住み替え: 「将来購入する」(従来の設定)も、最初の住み替えとして扱う
+    const moves = [];
+    if (h.type === "buy") moves.push({ age: h.buyAge, name: "住宅購入", type: "buy", price: h.price, down: h.down, closing: h.closing, rate: h.rate, years: h.years, upkeep: h.upkeep, salePrice: 0, sellCost: 0 });
+    for (const m of Array.isArray(p.moves) ? p.moves : []) moves.push({ name: "住み替え", ...m });
+    moves.sort((a, b) => a.age - b.age); // 同じ年齢なら入力順(sort は安定)
     const myPension = pensionOf(p);
     const spousePension = sp ? pensionOf(sp) : 0;
     const rows = [];
@@ -91,19 +104,27 @@
 
       const living = (working ? p.living : p.living * (p.retireLivingRatio / 100)) * infl;
 
-      let housing = 0;
-      if (owning) {
-        // 持ち家(購入済み): 残りのローン返済 + 管理費・修繕積立金 + 固定資産税 + 修繕費
-        if (n < h.ownYears) housing += ownPayment;
-        housing += (h.ownMgmt * 12 + h.ownTax + h.ownRepair) * infl;
-      } else if (!buying || age < h.buyAge) {
-        housing = h.rent;
-      } else {
-        if (age < h.buyAge + h.years) housing += payment;
-        housing += h.upkeep * infl;
+      // 住み替え(この年齢の分を先に反映)
+      let moveCash = 0; const moveNames = [];
+      for (const m of moves) {
+        if (m.age !== age) continue;
+        if (cur.kind === "own") { // 旧居が持ち家: 売却価格 - ローン残債 - 売却費用 が手元に入る(不足なら支出)
+          const bal = loanBalance(cur.principal, cur.rate, cur.years, age - cur.startAge);
+          moveCash -= (m.salePrice || 0) - bal - (m.sellCost || 0);
+        }
+        if (m.type === "buy") {
+          moveCash += (m.down || 0) + (m.closing || 0);
+          cur = { kind: "own", principal: Math.max(0, m.price - m.down), rate: m.rate, years: m.years, startAge: age, upkeep: m.upkeep };
+        } else cur = { kind: "rent", rent: m.rent };
+        moveNames.push(m.name || "住み替え");
       }
-      const housingOnce = buying && age === h.buyAge ? h.down + h.closing : 0;
-
+      // 住居費: 賃貸=家賃 / 持ち家=ローン返済(返済期間中)+維持費(物価に連動)
+      let housing = 0;
+      if (cur.kind === "rent") housing = cur.rent;
+      else {
+        if (age - cur.startAge < cur.years) housing += annualPayment(cur.principal, cur.rate, cur.years);
+        housing += cur.upkeep * infl;
+      }
       let child = 0;
       for (const c of p.children) {
         const ca = c.age + n;
@@ -115,7 +136,7 @@
       for (const d of debts) if (n < d.years) debt += annualPayment(d.balance, d.rate, d.years);
 
       const events = p.events.filter(e => e.age === age);
-      const eventCost = events.reduce((s, e) => s + e.amount, 0) + housingOnce;
+      const eventCost = events.reduce((s, e) => s + e.amount, 0) + moveCash;
       // 運用益(年初の残高に対して)→ 積立(年末に積み増し)→ 収支の余り/不足を口座に反映
       let invest = 0;
       for (const x of buckets) if (x.amount > 0) { const i = x.amount * x.rate / 100; x.amount += i; invest += i; }
@@ -136,7 +157,7 @@
       const cashBal = buckets.filter(x => x.cash).reduce((t, x) => t + x.amount, 0);
 
       const names = events.map(e => e.name);
-      if (housingOnce) names.push("住宅購入");
+      names.push(...moveNames);
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest,
         incomeTotal, living, housing, child, debt, eventCost, outgoTotal, contrib,
@@ -152,7 +173,7 @@
     };
   }
 
-  const api = { simulate, estimatePension, EDU_COURSES, annualPayment, eduCost };
+  const api = { simulate, estimatePension, loanBalance, EDU_COURSES, annualPayment, eduCost };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);

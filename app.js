@@ -19,6 +19,7 @@ const DEFAULTS = {
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
+  moves: [],
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
 };
 const $ = id => document.getElementById(id);
@@ -40,6 +41,7 @@ function merge(s) {
   out.assets = out.assets.map(a => ({ monthly: 0, until: 0, ...a, type: a.type || (a.rate < 1 ? "cash" : "invest") }));
   out.debts = Array.isArray(s.debts) ? s.debts : [];
   out.children = Array.isArray(s.children) ? s.children : [];
+  out.moves = Array.isArray(s.moves) ? s.moves : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
   out.living = out.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
   return out;
@@ -155,6 +157,20 @@ const CHILD_FIELDS = [
   { key: "age", type: "number", label: "年齢(生まれる前は負の数)", signed: true },
   { key: "course", type: "select", label: "進路", full: true, options: Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => [k, v.label]) },
 ];
+const MOVE_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "age", type: "number", label: "住み替える年齢", min: 0, resort: true },
+  { key: "type", type: "select", label: "新しい住まい", options: [["buy", "購入する(買い替え)"], ["rent", "賃貸に引っ越す"]] },
+  { key: "rent", type: "number", label: "新居の家賃(年額・賃貸の場合)", step: "10", min: 0 },
+  { key: "price", type: "number", label: "物件価格(購入の場合)", step: "100", min: 0 },
+  { key: "down", type: "number", label: "頭金(購入の場合)", step: "50", min: 0 },
+  { key: "closing", type: "number", label: "諸費用(購入の場合)", step: "10", min: 0 },
+  { key: "rate", type: "number", label: "ローン金利(%/年)", step: "0.1" },
+  { key: "years", type: "number", label: "返済年数", min: 1 },
+  { key: "upkeep", type: "number", label: "管理・修繕・税(年額)", step: "5", min: 0 },
+  { key: "salePrice", type: "number", label: "旧居の売却価格(いま持ち家の場合)", step: "100", min: 0, full: true },
+  { key: "sellCost", type: "number", label: "売却にかかる費用(仲介手数料など)", step: "10", min: 0, full: true },
+];
 const EVENT_FIELDS = [
   { key: "name", type: "text" },
   { key: "age", type: "number", label: "年齢", min: 0, resort: true },
@@ -181,6 +197,8 @@ function renderLiving() {
 
 function renderLists() {
   state.events.sort((x, y) => x.age - y.age);
+  state.moves.sort((x, y) => x.age - y.age);
+  renderEditable($("moveList"), state.moves, MOVE_FIELDS, renderLists);
   renderEditable($("eventList"), state.events, EVENT_FIELDS, renderLists);
   renderEditable($("assetList"), state.assets, ASSET_FIELDS);
   renderEditable($("debtList"), state.debts, DEBT_FIELDS);
@@ -319,6 +337,10 @@ $("childForm").addEventListener("submit", ev => {
 $("addLiving").onclick = () => {
   state.livingItems.push({ name: "", monthly: 0 }); refresh();
   const names = $("livingRows").querySelectorAll("input:not([type])"); names[names.length - 1].focus();
+};
+$("addMove").onclick = () => {
+  state.moves.push({ name: "住み替え", age: state.age + 10, type: "buy", rent: 120, price: 4000, down: 800, closing: 200, rate: 1.5, years: 30, upkeep: 30, salePrice: 3000, sellCost: 150 });
+  refresh();
 };
 $("assetForm").addEventListener("submit", ev => {
   ev.preventDefault();
