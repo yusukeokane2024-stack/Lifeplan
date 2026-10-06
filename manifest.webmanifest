@@ -1,6 +1,6 @@
 {
-  "name": "ライフプランシミュレーター",
-  "short_name": "ライフプラン",
+  "name": "Life Plan Studio",
+  "short_name": "Life Plan",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

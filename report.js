@@ -107,7 +107,7 @@ function chartChildren(rows, w, h, perChild) {
 function rpPage(title, { unit = false, cls = "" } = {}) {
   const el = document.createElement("section");
   el.className = "rp-page " + cls;
-  el.innerHTML = `<div class="rp-head"><div class="rp-brand">ライフプランシミュレーター</div><div class="rp-title">${esc(title)}</div><div class="rp-date">${RP_DATE} 作成</div></div>${unit ? '<div class="rp-unit">(単位:万円)</div>' : ""}<div class="rp-foot"></div>`;
+  el.innerHTML = `<div class="rp-head"><div class="rp-brand">Life Plan Studio</div><div class="rp-title">${esc(title)}</div><div class="rp-date">${RP_DATE} 作成</div></div>${unit ? '<div class="rp-unit">(単位:万円)</div>' : ""}<div class="rp-foot"></div>`;
   return el;
 }
 let RP_DATE = "";
