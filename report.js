@@ -214,6 +214,10 @@ function buildReport() {
   ], { kv: true }) + (p.pensionMode !== "manual" ? `<p class="rp-note">${{ employee: "会社員・公務員", self: "自営業・フリーランス", none: "専業主婦(夫)など" }[p.job]}${p.job === "employee" ? `/厚生年金 ${p.startAge}〜${p.kouseiEnd > 0 ? Math.min(p.kouseiEnd, p.retireAge) : p.retireAge}歳/平均年収${rpMoney(p.avgGross)}` : ""}</p>` : ""));
   cards.push(incKv(S, R.myPension, "本人の収入・年金"));
   if (S.spouse.enabled) cards.push(incKv(S.spouse, R.spousePension, "配偶者の収入・年金"));
+  if (S.cars.length) cards.push(rpCard("車(購入・買い替え)", rpTable(["名称", "購入", "価格(今)", "支払い", "周期"], S.cars.map(c => {
+    const until = c.until > 0 ? c.until : S.endAge + 1, ages = []; for (let b = c.age; b < until && b <= S.endAge; b = c.cycle > 0 ? b + c.cycle : Infinity) ages.push(b);
+    return [esc(c.name || "車"), `${ages.slice(0, 5).join("・")}${ages.length > 5 ? "…" : ""}歳`, rpMoney(c.price), c.useLoan === "loan" ? `ローン(頭金${rpMoney(c.down || 0)}・${c.loanYears}年・${c.rate}%)` : "一括", c.cycle > 0 ? `${c.cycle}年ごと(〜${until}歳)` : "1回"];
+  }), { align: ["", "c", "n", "", "c"] }) + '<p class="rp-note">価格は現在の価格で、物価上昇率で購入年の価格にしています。ローンの返済は「ローン返済」に、購入時の頭金・一括の支払いと維持費は「車の費用」に入ります。</p>'));
   if (S.incomeChanges.length) cards.push(rpCard("収入の変化", rpTable(["内容", "対象", "期間", "年間手取り", "昇給率"], [...S.incomeChanges].sort((a, b) => a.from - b.from).map(c =>
     [esc(c.name || "収入の変化"), c.who === "spouse" ? "配偶者" : "本人", `${c.from}歳〜${c.to > 0 ? c.to + "歳" : "退職まで"}`, rpMoney(c.income), `${c.raise || 0}%`]), { align: ["", "c", "c", "n", "n"] }) +
     '<p class="rp-note">期間外は、元の収入(基本設定の年収と昇給率)に戻ります。</p>'));
@@ -297,7 +301,8 @@ function buildReport() {
     ["s", "年金(手取り)", r => r.pension], ["s", "退職金", r => r.severance], ["tot", "収入合計", r => r.incomeTotal],
     ["sec out", "支出"],
     ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
-    ["s", "イベント・その他", r => r.eventCost], ["tot", "支出合計", r => r.outgoTotal],
+    ["s", "イベント・その他", r => r.eventCost],
+    ...(rows.some(r => r.car > 0.5) ? [["s", "車の費用", r => r.car]] : []), ["tot", "支出合計", r => r.outgoTotal],
     ["sec bal", "収支・資産"],
     ["s", "年間収支(現金)", r => r.net], ["s", "運用益(含み益)", r => r.invest], ["s", "資産の増減", r => r.assetChange], ["s", "積立額(投資へ)", r => r.contrib], ["s", "預貯金残高", r => r.cashBal], ["s", "投資残高", r => r.investBal], ["tot", "資産合計", r => r.balance],
   ];

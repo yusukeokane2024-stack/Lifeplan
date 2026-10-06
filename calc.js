@@ -147,6 +147,15 @@
     };
     const debtStates = debts.map(d => loanStatus(d, p.nowYear || new Date().getFullYear()));
     let depletedAge = null, prevBalance = assetTotal;
+    // 車の購入・買い替え。価格は「いまの価格」で入力し、購入時点の物価上昇率で将来の価格にする。
+    // 購入は「最初の年齢」から「周期」ごと(周期0は1回だけ)で、「乗るのをやめる年齢」より前まで。
+    const cars = (Array.isArray(p.cars) ? p.cars : []).map(c => ({ cycle: 0, until: 75, useLoan: "cash", loanYears: 5, rate: 0, ...c }));
+    const carBuyAges = c => { const out = []; const until = c.until > 0 ? c.until : p.endAge + 1; for (let b = c.age; b < until && b <= p.endAge; b = c.cycle > 0 ? b + c.cycle : Infinity) out.push(b); return out; };
+    const carDeal = (c, b) => { // b歳で買うときの、一括で払う額(頭金など)とローンの借入額
+      const f = Math.pow(1 + p.inflation / 100, b - p.age), need = Math.max(0, (c.price - (c.trade || 0)) * f);
+      const principal = c.useLoan === "loan" ? Math.max(0, need - (c.down || 0) * f) : 0;
+      return { cash: need - principal, principal };
+    };
     // 万が一(本人・配偶者の死亡 / 長期の就業不能)。sc.age は、その人本人の、発生時の年齢
     const policies = Array.isArray(p.policies) ? p.policies : [];
     let sc = p.scenario || null;
@@ -268,6 +277,17 @@
 
       let debt = 0;
       for (const st of debtStates) if (n < st.remaining) debt += st.payment;
+      // 車: 購入時の支出(一括・頭金)、維持費、ローンの返済
+      let carCost = 0; const carNames = [];
+      for (const c of cars) {
+        const ages = carBuyAges(c), until = c.until > 0 ? c.until : p.endAge + 1;
+        if (age >= c.age && age < until) carCost += (c.upkeep || 0) * infl;
+        if (ages.includes(age) && age >= p.age) { carCost += carDeal(c, age).cash; carNames.push(c.name || "車の購入"); }
+        if (c.useLoan === "loan") for (const b of ages) {
+          if (b < p.age || b > age || age - b >= c.loanYears) continue; // 現在より前のローンは、入力された既存ローンの側で扱う
+          debt += annualPayment(carDeal(c, b).principal, c.rate, c.loanYears);
+        }
+      }
 
       const events = p.events.filter(e => e.age === age);
       const eventCost = events.reduce((s, e) => s + e.amount, 0) + moveCash + riskCash + riskCost;
@@ -277,7 +297,7 @@
       let contrib = 0;
       for (const x of buckets) if (age < x.until && x.monthly > 0) { x.amount += x.monthly * 12; contrib += x.monthly * 12; }
       const cashIn = salary + spouseSalary + pension + severance + benefit + insIncome;
-      const outgoTotal = living + housing + child + debt + eventCost;
+      const outgoTotal = living + housing + child + debt + eventCost + carCost;
       const incomeTotal = cashIn; // 現金で入る収入。運用益は資産に積み上がるだけなので、収入には含めない
       const flow = cashIn - outgoTotal - contrib;
       if (flow >= 0) sink.amount += flow;
@@ -293,10 +313,10 @@
 
       const names = events.map(e => e.name);
       for (const c of changes) if ((c.who === "me" ? age : spouseAge) === c.from) names.push(c.name || "収入の変化");
-      names.push(...moveNames, ...riskNames);
+      names.push(...moveNames, ...riskNames, ...carNames);
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest, benefit, insIncome,
-        incomeTotal, living, housing, child, debt, eventCost, outgoTotal, contrib,
+        incomeTotal, living, housing, child, debt, eventCost, car: carCost, outgoTotal, contrib,
         net: incomeTotal - outgoTotal, assetChange, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
       });
     }

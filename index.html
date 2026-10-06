@@ -345,6 +345,13 @@
       <button type="button" id="addMove" class="secondary">+ 住み替えを追加</button>
     </details>
 
+    <details><summary>🚗 車(購入・買い替え・ローン)</summary>
+      <p class="hint">車の購入と、周期的な買い替えを入れます。<b>ローン</b>を選ぶと、購入時は頭金だけが支出になり、毎年の返済が「ローン返済」に入ります。価格は<b>いまの価格</b>で入れてください(物価上昇率で、買う年の価格にします)。「ライフイベント」に車の購入を入れている場合は、二重にならないよう、そちらを削除してください。</p>
+      <div id="carList" class="item-list"></div>
+      <button type="button" id="addCar" class="secondary">+ 車を追加</button>
+      <p class="hint" id="carInfo"></p>
+    </details>
+
     <details><summary>🎯 ライフイベント</summary>
       <p class="hint">支出は正の数、収入(相続など)は負の数で入力します。</p>
       <div id="eventList" class="item-list"></div>

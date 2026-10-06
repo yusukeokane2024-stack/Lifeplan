@@ -26,6 +26,7 @@ const DEFAULTS = {
   protection: { funeral: 200, livingRatio: 75, disabilityLossRate: 100, disabilityMedical: 10, disabilityYears: 0, disabilityPension: true, dankin: true, loanHolder: "me" },
   riskView: { who: "me", type: "death", age: 0 },
   incomeChanges: [],
+  cars: [],
   moves: [],
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
 };
@@ -52,6 +53,7 @@ function merge(s) {
   out.children = Array.isArray(s.children) ? s.children : [];
   out.policies = Array.isArray(s.policies) ? s.policies : [];
   out.incomeChanges = Array.isArray(s.incomeChanges) ? s.incomeChanges : [];
+  out.cars = Array.isArray(s.cars) ? s.cars : [];
   out.moves = Array.isArray(s.moves) ? s.moves : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
   out.living = out.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
@@ -177,6 +179,19 @@ const CHILD_FIELDS = [
   { key: "age", type: "number", label: "年齢(生まれる前は負の数)", signed: true },
   { key: "course", type: "select", label: "進路", full: true, options: Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => [k, v.label]) },
 ];
+const CAR_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "age", type: "number", label: "最初に買う年齢", min: 0 },
+  { key: "price", type: "number", label: "車の価格(いまの価格・万円)", step: "10", min: 0 },
+  { key: "trade", type: "number", label: "下取り・売却額(万円)", step: "10", min: 0 },
+  { key: "useLoan", type: "select", label: "支払い方法", resort: true, options: [["cash", "一括(現金)"], ["loan", "ローン"]] },
+  { key: "down", type: "number", label: "頭金(万円)", step: "10", min: 0, show: c => c.useLoan === "loan" },
+  { key: "loanYears", type: "number", label: "ローンの返済年数", min: 1, show: c => c.useLoan === "loan" },
+  { key: "rate", type: "number", label: "ローンの金利(%/年)", step: "0.1", show: c => c.useLoan === "loan" },
+  { key: "cycle", type: "number", label: "買い替えの周期(年・0=1回だけ)", min: 0 },
+  { key: "until", type: "number", label: "乗るのをやめる年齢", min: 0 },
+  { key: "upkeep", type: "number", label: "維持費(年額・車検/税/保険など)", step: "5", min: 0, full: true },
+];
 const POLICY_FIELDS = [
   { key: "name", type: "text" },
   { key: "who", type: "select", label: "被保険者", full: true, options: [["me", "本人"], ["spouse", "配偶者"]] },
@@ -236,6 +251,7 @@ function renderLiving() {
 
 function renderLists() {
   state.events.sort((x, y) => x.age - y.age);
+  renderEditable($("carList"), state.cars, CAR_FIELDS, renderLists);
   renderEditable($("policyList"), state.policies, POLICY_FIELDS);
   state.incomeChanges.sort((x, y) => x.from - y.from);
   renderEditable($("incomeList"), state.incomeChanges, INCOME_FIELDS, renderLists);
@@ -300,7 +316,7 @@ const COLS = [
   ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension], ["遺族・障害年金", r => r.benefit, true], ["保険の給付", r => r.insIncome, true],
   ["退職金", r => r.severance], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
-  ["イベント等", r => r.eventCost], ["支出合計", r => r.outgoTotal],
+  ["イベント等", r => r.eventCost], ["車の費用", r => r.car, true], ["支出合計", r => r.outgoTotal],
   ["年間収支(現金)", r => r.net], ["運用益(含み益)", r => r.invest], ["資産の増減", r => r.assetChange], ["積立額", r => r.contrib], ["資産残高", r => r.balance], ["預貯金残高", r => r.cashBal], ["投資残高", r => r.investBal], ["イベント名", r => r.eventNames],
 ];
 const num = v => typeof v === "number" ? Math.round(v) : v;
@@ -492,6 +508,12 @@ function update() {
       : `ローンは完済済み(返済なし) / 年間住居費 約${upk}万円`;
   }
   $("loanInfo").textContent = loanText;
+  $("carInfo").textContent = state.cars.length ? "いまの状況: " + state.cars.map(c => {
+    const ages = []; const until = c.until > 0 ? c.until : state.endAge + 1; for (let b = c.age; b < until && b <= state.endAge; b = c.cycle > 0 ? b + c.cycle : Infinity) ages.push(b);
+    const f = Math.pow(1 + state.inflation / 100, Math.max(0, c.age - state.age)), need = Math.max(0, (c.price - (c.trade || 0)) * f), pr = c.useLoan === "loan" ? Math.max(0, need - (c.down || 0) * f) : 0;
+    return `${c.name || "車"}: ${ages.length ? ages.slice(0, 6).join("・") + (ages.length > 6 ? "…" : "") + "歳に購入" : "購入なし"}` +
+      (c.useLoan === "loan" ? `(最初の購入: 借入 約${fmt(pr)}万円・年返済 約${fmt(LifePlan.annualPayment(pr, c.rate, c.loanYears))}万円×${c.loanYears}年)` : "(一括払い)");
+  }).join(" / ") : "";
   $("debtInfo").textContent = state.debts.length
     ? "いまの状況: " + state.debts.map((d, i) => { const st = result.debtStates[i]; return st.remaining > 0 ? `${d.name || "ローン"} 残高 約${fmt(st.balance)}万円・年${fmt(st.payment)}万円・あと${st.remaining}年` : `${d.name || "ローン"} 完済済み`; }).join(" / ")
     : "";
@@ -520,6 +542,10 @@ $("viewSeg").addEventListener("click", ev => {
   else { viewMode = "risk"; state.riskView.type = "death"; state.riskView.who = v === "death-me" ? "me" : "spouse"; }
   update();
 });
+$("addCar").onclick = () => {
+  state.cars.push({ name: "車", age: state.age + 5, price: 300, trade: 0, useLoan: "loan", down: 50, loanYears: 5, rate: 3.5, cycle: 10, until: 75, upkeep: 0 });
+  refresh();
+};
 $("addPolicy").onclick = () => {
   state.policies.push({ name: "生命保険", who: "me", death: 3000, incomeProtect: 0, incomeUntil: 60, disabilityBenefit: 0, premium: 0 });
   refresh();
