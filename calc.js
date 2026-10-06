@@ -100,22 +100,32 @@
     const returnRate = assetTotal > 0 ? sumOf(x => x.amount * x.rate) / assetTotal : 0; // 表示用の加重平均
     const monthlyContrib = sumOf(x => (p.age < x.until ? x.monthly : 0));
     const debts = Array.isArray(p.debts) ? p.debts : [];
+    // 収入の変化(フリーランス・転職・育休・休職など)。期間外は、元の「年収×昇給率」の道すじに戻る
+    const changes = (Array.isArray(p.incomeChanges) ? p.incomeChanges : []).map(c => ({ who: "me", ...c })).sort((a, b) => a.from - b.from);
+    const salaryOf = (who, baseIncome, baseRaise, personAge, n, retireAge) => {
+      let v = baseIncome * Math.pow(1 + baseRaise / 100, n);
+      for (const c of changes) {
+        if (c.who !== who) continue;
+        const to = c.to > 0 ? c.to : retireAge;
+        if (personAge >= c.from && personAge < to) v = c.income * Math.pow(1 + (c.raise || 0) / 100, personAge - c.from);
+      }
+      return v;
+    };
     const debtStates = debts.map(d => loanStatus(d, p.nowYear || new Date().getFullYear()));
     let depletedAge = null;
 
     for (let age = p.age; age <= p.endAge; age++) {
       const n = age - p.age;
       const working = age < p.retireAge;
-      const raiseF = Math.pow(1 + p.raise / 100, n);
       const infl = Math.pow(1 + p.inflation / 100, n);
 
-      const salary = working ? p.income * raiseF : 0;
+      const salary = working ? salaryOf("me", p.income, p.raise, age, n, p.retireAge) : 0;
       let pension = age >= p.pensionAge ? myPension : 0;
       let severance = age === p.retireAge ? p.severance : 0;
       let spouseSalary = 0, spouseAge = null;
       if (sp) {
         spouseAge = sp.age + n;
-        if (spouseAge < sp.retireAge) spouseSalary = sp.income * Math.pow(1 + sp.raise / 100, n);
+        if (spouseAge < sp.retireAge) spouseSalary = salaryOf("spouse", sp.income, sp.raise, spouseAge, n, sp.retireAge);
         if (spouseAge >= sp.pensionAge) pension += spousePension;
         if (spouseAge === sp.retireAge) severance += sp.severance;
       }
@@ -175,6 +185,7 @@
       const cashBal = buckets.filter(x => x.cash).reduce((t, x) => t + x.amount, 0);
 
       const names = events.map(e => e.name);
+      for (const c of changes) if ((c.who === "me" ? age : spouseAge) === c.from) names.push(c.name || "収入の変化");
       names.push(...moveNames);
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest,

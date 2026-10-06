@@ -179,6 +179,9 @@ function buildReport() {
   ], { kv: true }) + (p.pensionMode !== "manual" ? `<p class="rp-note">${{ employee: "会社員・公務員", self: "自営業・フリーランス", none: "専業主婦(夫)など" }[p.job]}${p.job === "employee" ? `/厚生年金 ${p.startAge}〜${p.kouseiEnd > 0 ? Math.min(p.kouseiEnd, p.retireAge) : p.retireAge}歳/平均年収${rpMoney(p.avgGross)}` : ""}</p>` : ""));
   cards.push(incKv(S, R.myPension, "本人の収入・年金"));
   if (S.spouse.enabled) cards.push(incKv(S.spouse, R.spousePension, "配偶者の収入・年金"));
+  if (S.incomeChanges.length) cards.push(rpCard("収入の変化", rpTable(["内容", "対象", "期間", "年間手取り", "昇給率"], [...S.incomeChanges].sort((a, b) => a.from - b.from).map(c =>
+    [esc(c.name || "収入の変化"), c.who === "spouse" ? "配偶者" : "本人", `${c.from}歳〜${c.to > 0 ? c.to + "歳" : "退職まで"}`, rpMoney(c.income), `${c.raise || 0}%`]), { align: ["", "c", "c", "n", "n"] }) +
+    '<p class="rp-note">期間外は、元の収入(基本設定の年収と昇給率)に戻ります。</p>'));
   const asset = S.assets.map(a => [esc(a.name), a.type === "invest" ? "投資" : "預貯金", rpMoney(a.amount), `${a.rate}%`, a.monthly ? `${a.monthly}万円/月` : "-", a.monthly ? `〜${a.until > 0 ? a.until : S.retireAge}歳` : "-"]);
   asset.push({ sum: true, cells: ["合計", "", rpMoney(R.assetTotal), "", R.monthlyContrib ? `${Math.round(R.monthlyContrib * 10) / 10}万円/月` : "-", ""] });
   cards.push(rpCard("現在の資産・毎月の積立", rpTable(["口座", "種類", "金額", "利回り", "積立", "積立期間"], asset, { align: ["", "c", "n", "n", "n", "c"] })));

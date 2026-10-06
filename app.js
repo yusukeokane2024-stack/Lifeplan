@@ -20,6 +20,7 @@ const DEFAULTS = {
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
+  incomeChanges: [],
   moves: [],
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
 };
@@ -44,6 +45,7 @@ function merge(s) {
   if (s.housing && !s.housing.ownMode) out.housing.ownMode = "balance";
   out.debts = (Array.isArray(s.debts) ? s.debts : []).map(d => ({ mode: "balance", ...d }));
   out.children = Array.isArray(s.children) ? s.children : [];
+  out.incomeChanges = Array.isArray(s.incomeChanges) ? s.incomeChanges : [];
   out.moves = Array.isArray(s.moves) ? s.moves : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
   out.living = out.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
@@ -133,7 +135,11 @@ function renderEditable(box, items, fields, onResort) {
         item[f.key] = f.type === "number" ? (parseFloat(el.value) || 0) : el.value;
         update();
       });
-      if (f.resort) el.addEventListener("change", onResort);
+      if (f.resort) el.addEventListener("change", () => {
+        // 並び順が変わらないときは作り直さない(次の欄をタップした直後に、入力欄が消えてしまうのを防ぐ)。選択肢の切り替えは、表示項目が変わるので作り直す
+        if (f.type !== "select" && items.every((it, i) => i === 0 || items[i - 1][f.key] <= it[f.key])) return;
+        onResort();
+      });
       if (fi === 0) { el.placeholder = "名称"; head.append(el); return; }
       const lab = document.createElement("label"); if (f.full) lab.className = "full"; lab.append(f.label, el); grid.append(lab);
     });
@@ -164,6 +170,14 @@ const CHILD_FIELDS = [
   { key: "name", type: "text" },
   { key: "age", type: "number", label: "年齢(生まれる前は負の数)", signed: true },
   { key: "course", type: "select", label: "進路", full: true, options: Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => [k, v.label]) },
+];
+const INCOME_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "who", type: "select", label: "対象", options: [["me", "本人"], ["spouse", "配偶者"]] },
+  { key: "from", type: "number", label: "開始年齢", min: 0, resort: true },
+  { key: "to", type: "number", label: "終了年齢(空欄=退職まで)", placeholder: "空欄", blank: true, min: 0 },
+  { key: "income", type: "number", label: "変化後の年間手取り(万円)", step: "10", min: 0 },
+  { key: "raise", type: "number", label: "その後の昇給率(%/年)", step: "0.1", signed: true },
 ];
 const MOVE_FIELDS = [
   { key: "name", type: "text" },
@@ -205,6 +219,8 @@ function renderLiving() {
 
 function renderLists() {
   state.events.sort((x, y) => x.age - y.age);
+  state.incomeChanges.sort((x, y) => x.from - y.from);
+  renderEditable($("incomeList"), state.incomeChanges, INCOME_FIELDS, renderLists);
   state.moves.sort((x, y) => x.age - y.age);
   renderEditable($("moveList"), state.moves, MOVE_FIELDS, renderLists);
   renderEditable($("eventList"), state.events, EVENT_FIELDS, renderLists);
@@ -355,6 +371,10 @@ $("childForm").addEventListener("submit", ev => {
 $("addLiving").onclick = () => {
   state.livingItems.push({ name: "", monthly: 0 }); refresh();
   const names = $("livingRows").querySelectorAll("input:not([type])"); names[names.length - 1].focus();
+};
+$("addIncome").onclick = () => {
+  state.incomeChanges.push({ name: "収入の変化", who: "me", from: state.age + 5, to: 0, income: Math.round(state.income * 0.8 / 10) * 10, raise: 0 });
+  refresh();
 };
 $("addMove").onclick = () => {
   state.moves.push({ name: "住み替え", age: state.age + 10, type: "buy", rent: 120, price: 4000, down: 800, closing: 200, rate: 1.5, years: 30, upkeep: 30, salePrice: 3000, sellCost: 150 });
