@@ -491,8 +491,9 @@ function update() {
   $("ownAuto2").style.display = balMode ? "none" : "";
   $("ownBal2").style.display = balMode ? "" : "none";
   $("ownHolder2").textContent = whoName(state.protection.loanHolder === "spouse" ? "me" : "spouse");
-  $("buyPairCheck").style.display = state.spouse.enabled ? "" : "none";
-  $("buyPair").style.display = h.pair && state.spouse.enabled ? "" : "none";
+  // 将来購入のペアローンは、「将来購入する」を選んだときだけ表示(持ち家のときは、上の「ペアローン」を使う)
+  $("buyPairCheck").style.display = h.type === "buy" && state.spouse.enabled ? "" : "none";
+  $("buyPair").style.display = h.type === "buy" && h.pair && state.spouse.enabled ? "" : "none";
   let loanText = "";
   if (h.type === "buy") {
     const L = h.price - h.down, sh = h.pair && state.spouse.enabled ? (h.pairRatio ?? 50) / 100 : 1;
