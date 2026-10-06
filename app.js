@@ -7,7 +7,7 @@ const DEFAULTS = {
     { name: "日用品", monthly: 1 }, { name: "被服・美容", monthly: 1 }, { name: "交際・娯楽", monthly: 3 },
     { name: "保険・医療", monthly: 2 }, { name: "その他", monthly: 1 },
   ],
-  retireLivingRatio: 80, inflation: 1,
+  retireLivingRatio: 80, inflation: 1, pensionNetMode: "auto", pensionNetRate: 90,
   assets: [
     { name: "預貯金", type: "cash", amount: 200, rate: 0.1, monthly: 0, until: 0 },
     { name: "投資信託・株式", type: "invest", amount: 100, rate: 4, monthly: 3, until: 0 },
@@ -279,7 +279,7 @@ function renderVerdict(r) {
 
 const COLS = [
   ["年齢", r => r.age], ["配偶者年齢", r => r.spouseAge ?? ""],
-  ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金", r => r.pension],
+  ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension],
   ["退職金", r => r.severance], ["運用益", r => r.invest], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
   ["イベント等", r => r.eventCost], ["支出合計", r => r.outgoTotal],
@@ -336,6 +336,12 @@ function update() {
         ? (person.kouseiEnd > 0 && person.kouseiEnd < 65 ? `厚生年金は${person.startAge}〜${person.kouseiEnd}歳の分のみ。以降は国民年金です。` : "")
         : "働き方が会社員・公務員以外のため、国民年金(基礎年金)のみの見積もりです。")
       : "";
+  }
+  $("pnRateLabel").style.display = state.pensionNetMode === "rate" ? "" : "none";
+  {
+    const line = (label, gross, net) => `${label} 額面${gross.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円 → 手取り約${net.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円/年`;
+    $("pensionNetInfo").textContent = state.pensionNetMode === "none" ? "年金は額面のまま収入に入れています。"
+      : "年金の手取り見込み: " + [line("本人", result.myPension, result.myPensionNet), ...(state.spouse.enabled ? [line("配偶者", result.spousePension, result.spousePensionNet)] : [])].join(" / ");
   }
   const ht = state.housing.type;
   $("buyFields").style.display = ht === "buy" ? "" : "none";

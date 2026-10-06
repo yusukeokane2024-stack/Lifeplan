@@ -200,7 +200,11 @@
       <div class="grid">
         <label>退職後の生活費比率 (%)<input type="number" data-k="retireLivingRatio" step="5"></label>
         <label>物価上昇率 (%/年)<input type="number" data-k="inflation" step="0.1"></label>
+        <label>年金の手取り換算<select data-k="pensionNetMode"><option value="auto">自動(年金額に応じた目安)</option><option value="rate">一律の率を入力</option><option value="none">換算しない(額面のまま)</option></select></label>
+        <label id="pnRateLabel">年金の手取り率 (%)<input type="number" data-k="pensionNetRate" step="1" min="50" max="100"></label>
       </div>
+      <p class="hint" id="pensionNetInfo"></p>
+      <p class="hint">年金は額面の金額です。そこから税金・国民健康保険料・介護保険料が引かれるため、手取りに換算して収支に入れます(自動の目安は、年金のみで暮らす65歳以上の単身の概算で、自治体や家族構成で前後します)。「年金の入力方法」で金額を自分で入れる場合も、額面(ねんきん定期便の見込額)で入れてください。</p>
     </details>
 
     <details open><summary>💰 現在の資産・負債</summary>

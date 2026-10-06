@@ -44,6 +44,21 @@
     total *= diff < 0 ? 1 + 0.004 * diff * 12 : 1 + 0.007 * diff * 12;
     return Math.round(total * 10) / 10;
   }
+  // 公的年金の手取り率(%)の目安。年金額(額面・年額・万円)が多いほど、税金・国民健康保険料・介護保険料の割合が増える。
+  // 65歳以上・公的年金のみ・扶養なしの概算で、自治体や家族構成によって前後する。
+  const PENSION_NET_TABLE = [[0, 100], [100, 97], [150, 94], [200, 91.5], [300, 88], [400, 85.5], [600, 82]];
+  function pensionNetRate(gross) {
+    const t = PENSION_NET_TABLE;
+    if (gross <= t[0][0]) return t[0][1];
+    for (let i = 1; i < t.length; i++) if (gross <= t[i][0]) return t[i - 1][1] + (t[i][1] - t[i - 1][1]) * (gross - t[i - 1][0]) / (t[i][0] - t[i - 1][0]);
+    return t[t.length - 1][1];
+  }
+  // 年金の手取り額。mode: "auto"(年金額に応じた目安) / "rate"(一律の率) / "none"(換算しない)
+  function pensionNet(gross, mode, rate) {
+    if (mode === "none") return gross;
+    const r = mode === "rate" ? Math.max(0, Math.min(100, rate)) : pensionNetRate(gross);
+    return Math.round(gross * r) / 100;
+  }
   function pensionOf(person) {
     return person.pensionMode === "manual" ? person.pension : estimatePension(person);
   }
@@ -85,8 +100,11 @@
     if (h.type === "buy") moves.push({ age: h.buyAge, name: "住宅購入", type: "buy", price: h.price, down: h.down, closing: h.closing, rate: h.rate, years: h.years, upkeep: h.upkeep, salePrice: 0, sellCost: 0 });
     for (const m of Array.isArray(p.moves) ? p.moves : []) moves.push({ name: "住み替え", ...m });
     moves.sort((a, b) => a.age - b.age); // 同じ年齢なら入力順(sort は安定)
-    const myPension = pensionOf(p);
+    const myPension = pensionOf(p);                         // 額面
     const spousePension = sp ? pensionOf(sp) : 0;
+    const netMode = p.pensionNetMode || "none";             // 未設定の古いデータは換算しない(旧版と同じ結果)
+    const myPensionNet = pensionNet(myPension, netMode, p.pensionNetRate);
+    const spousePensionNet = pensionNet(spousePension, netMode, p.pensionNetRate);
     const rows = [];
     // 資産は口座ごとに管理する。毎月の積立は各口座へ、収支の余りは最初の預貯金口座へ入れ、
     // 足りない分は預貯金 → 投資の順に取り崩す。
@@ -120,13 +138,13 @@
       const infl = Math.pow(1 + p.inflation / 100, n);
 
       const salary = working ? salaryOf("me", p.income, p.raise, age, n, p.retireAge) : 0;
-      let pension = age >= p.pensionAge ? myPension : 0;
+      let pension = age >= p.pensionAge ? myPensionNet : 0;
       let severance = age === p.retireAge ? p.severance : 0;
       let spouseSalary = 0, spouseAge = null;
       if (sp) {
         spouseAge = sp.age + n;
         if (spouseAge < sp.retireAge) spouseSalary = salaryOf("spouse", sp.income, sp.raise, spouseAge, n, sp.retireAge);
-        if (spouseAge >= sp.pensionAge) pension += spousePension;
+        if (spouseAge >= sp.pensionAge) pension += spousePensionNet;
         if (spouseAge === sp.retireAge) severance += sp.severance;
       }
 
@@ -195,14 +213,14 @@
     }
     const atRetire = rows.find(r => r.age === p.retireAge);
     return {
-      rows, depletedAge, assetTotal, returnRate, monthlyContrib, myPension, spousePension,
+      rows, depletedAge, assetTotal, returnRate, monthlyContrib, myPension, spousePension, myPensionNet, spousePensionNet,
       debtTotal: debtStates.reduce((s, st) => s + st.balance, 0), debtStates,
       retireBalance: atRetire ? atRetire.balance : null,
       finalBalance: rows[rows.length - 1].balance,
     };
   }
 
-  const api = { simulate, estimatePension, loanBalance, loanStatus, EDU_COURSES, annualPayment, eduCost };
+  const api = { simulate, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);

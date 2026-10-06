@@ -172,7 +172,11 @@ function buildReport() {
   if (S.spouse.enabled) fam.push(["配偶者", `${S.spouse.age}歳`, "-"]);
   S.children.forEach(c => fam.push([esc(c.name || "子ども"), age(c.age), esc(LifePlan.EDU_COURSES[c.course]?.label || "")]));
   cards.push(rpCard("ご家族構成", rpTable(["続柄", "年齢", "進路"], fam, { align: ["", "c", ""] })));
-  const pensionRow = (p, est) => p.pensionMode === "manual" ? ["年金(手入力)", `${rpMoney(p.pension)}/年`] : ["年金(自動見積り)", `${rpMoney(est)}/年`];
+  const pensionRow = (p, est) => {
+    const net = LifePlan.pensionNet(est, S.pensionNetMode, S.pensionNetRate);
+    const gross = p.pensionMode === "manual" ? ["年金(手入力・額面)", `${rpMoney(p.pension)}/年`] : ["年金(自動見積り・額面)", `${rpMoney(est)}/年`];
+    return S.pensionNetMode === "none" ? gross : [gross[0], `${gross[1].replace("/年", "")} → 手取り約${rpMoney(net)}/年`];
+  };
   const incKv = (p, est, title) => rpCard(title, rpTable(null, [
     ["年間手取り収入", rpMoney(p.income)], ["昇給率", `${p.raise}%`], ["就労期間", `〜${p.retireAge}歳`], ["退職金", `${rpMoney(p.severance)}(${p.retireAge}歳)`],
     ["年金受給開始", `${p.pensionAge}歳`], pensionRow(p, est),
@@ -245,7 +249,7 @@ function buildReport() {
     ...S.children.map((c, i) => ["l", esc(c.name || "子ども" + (i + 1)), (r, n) => c.age + n]),
     ["sec inc", "収入"],
     ["s", "給与(本人)", r => r.salary], ...(sp ? [["s", "給与(配偶者)", r => r.spouseSalary]] : []),
-    ["s", "年金", r => r.pension], ["s", "退職金", r => r.severance], ["s", "運用益", r => r.invest], ["tot", "収入合計", r => r.incomeTotal],
+    ["s", "年金(手取り)", r => r.pension], ["s", "退職金", r => r.severance], ["s", "運用益", r => r.invest], ["tot", "収入合計", r => r.incomeTotal],
     ["sec out", "支出"],
     ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
     ["s", "イベント・その他", r => r.eventCost], ["tot", "支出合計", r => r.outgoTotal],
@@ -293,7 +297,7 @@ function buildReport() {
   note.insertAdjacentHTML("beforeend", `<div class="rp-card" style="margin-top:14px"><h3>この試算について</h3><div class="rp-body" style="font-size:14px;line-height:1.85">
     <ul style="margin:6px 0 4px 0;padding:0 0 0 22px;list-style:disc">
       <li style="margin:0 0 4px">本レポートは、入力された条件にもとづく<b>概算</b>です。将来の収入・支出・運用成績を保証するものではありません。</li>
-      <li style="margin:0 0 4px">収入は<b>手取り額</b>で入力した前提で、所得税・住民税・社会保険料の計算は行っていません。</li>
+      <li style="margin:0 0 4px">給与などの収入は<b>手取り額</b>で入力した前提で、所得税・住民税・社会保険料の計算は行っていません。公的年金は、額面の見積もりに、税金・国民健康保険料・介護保険料を引いた<b>手取りの目安</b>(年金額に応じた概算)を掛けて収入に入れています。</li>
       <li style="margin:0 0 4px">公的年金は、基礎年金の満額と厚生年金の計算式による簡易な見積もりです(加給年金・経過的加算・年金額の改定は含みません)。正確な見込額は「ねんきんネット」等でご確認ください。</li>
       <li style="margin:0 0 4px">運用利回りは名目値で、運用にかかる税金・手数料は含みません。物価上昇率は生活費などの支出に反映しています(年金額は物価に連動させていません)。</li>
       <li style="margin:0 0 4px">資産は口座ごとに管理しています。毎月の積立は各口座へ積み増し、収支の余りは最初の「預貯金」口座に入れ、不足分は預貯金 → 投資の順に取り崩す前提です。</li>
