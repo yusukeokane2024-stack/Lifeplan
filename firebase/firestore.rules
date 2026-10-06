@@ -1,0 +1,21 @@
+// ライフプランアプリ用の Firestore ルール。
+// ※ すでに別のアプリで同じ Firebase プロジェクトを使っている場合は、既存のルールを消さずに、
+//    下の `match /lifeplanUsers/...` の2ブロックだけを、既存の `match /databases/{database}/documents { ... }` の中に追加してください。
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // lifeplanUsers/{uid} … 更新の目印(rev)を置く。本人だけが読み書きできる
+    match /lifeplanUsers/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // lifeplanUsers/{uid}/plans/{planId} … 受講生プラン。本人だけが読み書きできる
+      match /plans/{planId} {
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.dataJson is string
+          && request.resource.data.dataJson.size() < 900000;  // 1ドキュメント 1MiB の上限の手前で止める
+      }
+    }
+  }
+}

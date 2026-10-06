@@ -1,8 +1,15 @@
-// ログインと端末間の同期(Supabase の認証・データベースを REST で直接利用)。
+// ログインと端末間の同期(Firebase Authentication と Cloud Firestore を REST で直接利用)。
 // 方針: 端末内の保存を常に正とし(オフラインでも使える)、ログイン中は変更をサーバーに送り、他の端末の変更を取り込む。
 // 同じプランを複数の端末で同時に編集して食い違った場合は、新しい方を残し、古い方は「(競合コピー)」として別プランに残す。
 const CFG = window.LIFEPLAN_CONFIG || {};
-const SYNC_ON = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+const SYNC_ON = !!(CFG.firebaseApiKey && CFG.firebaseProjectId);
+const trim = u => String(u).replace(/\/$/, "");
+const FB = {
+  key: CFG.firebaseApiKey, project: CFG.firebaseProjectId,
+  auth: trim(CFG.firebaseAuthBase || "https://identitytoolkit.googleapis.com"),
+  token: trim(CFG.firebaseTokenBase || "https://securetoken.googleapis.com"),
+  store: trim(CFG.firestoreBase || "https://firestore.googleapis.com"),
+};
 const AUTH_KEY = "lifeplan.auth";
 const el = id => document.getElementById(id);
 
@@ -16,44 +23,51 @@ function saveSession(s) {
 }
 const jpError = m => {
   const t = String(m || "");
-  if (/Invalid login credentials/i.test(t)) return "メールアドレスまたはパスワードが違います。";
-  if (/already registered|already been registered/i.test(t)) return "このメールアドレスはすでに登録されています。ログインしてください。";
-  if (/at least \d+ characters|weak/i.test(t)) return "パスワードは6文字以上にしてください(推測されやすいものは使えません)。";
-  if (/Email not confirmed/i.test(t)) return "メールの確認が完了していません。届いたメールのリンクを開いてください。";
-  if (/rate limit|too many/i.test(t)) return "短時間に操作が多すぎます。しばらくしてからもう一度お試しください。";
-  if (/valid email|invalid.*email/i.test(t)) return "メールアドレスの形式を確認してください。";
+  if (/INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND/i.test(t)) return "メールアドレスまたはパスワードが違います。";
+  if (/EMAIL_EXISTS/i.test(t)) return "このメールアドレスはすでに登録されています。ログインしてください。";
+  if (/WEAK_PASSWORD/i.test(t)) return "パスワードは6文字以上にしてください。";
+  if (/INVALID_EMAIL|MISSING_EMAIL/i.test(t)) return "メールアドレスの形式を確認してください。";
+  if (/MISSING_PASSWORD/i.test(t)) return "パスワードを入力してください。";
+  if (/TOO_MANY_ATTEMPTS|QUOTA|rate limit/i.test(t)) return "短時間に操作が多すぎます。しばらくしてからもう一度お試しください。";
+  if (/USER_DISABLED/i.test(t)) return "このアカウントは利用できません。";
+  if (/OPERATION_NOT_ALLOWED|ADMIN_ONLY/i.test(t)) return "この操作は許可されていません。Firebase のログイン設定(メール/パスワード・新規登録)を確認してください。";
+  if (/PERMISSION_DENIED|insufficient permissions/i.test(t)) return "サーバーの保護ルールにより保存できませんでした。Firestore のルール設定を確認してください。";
+  if (/API key not valid|API_KEY_INVALID/i.test(t)) return "Firebase の API キーが正しくありません。config.js を確認してください。";
   if (/Failed to fetch|NetworkError|Load failed/i.test(t)) return "通信できませんでした。ネットワークを確認してください。";
   return t || "エラーが発生しました。";
 };
 
 // ---------- HTTP ----------
-async function api(path, { method = "GET", body, headers = {}, auth = true } = {}) {
-  if (auth && session) await ensureFresh();
-  const res = await fetch(CFG.supabaseUrl.replace(/\/$/, "") + path, {
-    method, body: body === undefined ? undefined : JSON.stringify(body),
-    headers: { apikey: CFG.supabaseAnonKey, "Content-Type": "application/json", ...(auth && session ? { Authorization: "Bearer " + session.access_token } : {}), ...headers },
-  });
-  const text = await res.text(); let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch (e) {}
+async function http(url, { method = "GET", json, form, token } = {}) {
+  const headers = {};
+  if (json !== undefined) headers["Content-Type"] = "application/json";
+  if (form !== undefined) headers["Content-Type"] = "application/x-www-form-urlencoded";
+  if (token) headers.Authorization = "Bearer " + token;
+  const res = await fetch(url, { method, headers, body: json !== undefined ? JSON.stringify(json) : form });
+  const text = await res.text(); let j = null;
+  try { j = text ? JSON.parse(text) : null; } catch (e) {}
   if (!res.ok) {
-    const err = new Error((json && (json.error_description || json.msg || json.message || json.error)) || `HTTP ${res.status}`);
-    err.status = res.status; throw err;
+    const e = j && j.error;
+    const err = new Error((e && (e.message || e.status)) || `HTTP ${res.status}`);
+    err.status = res.status; err.fbStatus = e && e.status; throw err;
   }
-  return json;
+  return j;
 }
+// ログイン済みのリクエスト(期限が近ければ先にトークンを更新)
+async function authed(url, opts = {}) { await ensureFresh(); return http(url, { ...opts, token: session.access_token }); }
+const identity = (path, body) => http(`${FB.auth}/v1/${path}?key=${encodeURIComponent(FB.key)}`, { method: "POST", json: body });
 function toSession(j) {
-  return { access_token: j.access_token, refresh_token: j.refresh_token,
-    expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600), user: { id: j.user.id, email: j.user.email } };
+  return { access_token: j.idToken, refresh_token: j.refreshToken, expires_at: Math.floor(Date.now() / 1000) + Number(j.expiresIn || 3600), user: { id: j.localId, email: j.email } };
 }
 let refreshing = null;
 async function ensureFresh() {
   if (!session || session.expires_at * 1000 - Date.now() > 60000) return;
   refreshing = refreshing || (async () => {
     try {
-      const j = await api("/auth/v1/token?grant_type=refresh_token", { method: "POST", body: { refresh_token: session.refresh_token }, auth: false });
-      saveSession(toSession(j));
+      const j = await http(`${FB.token}/v1/token?key=${encodeURIComponent(FB.key)}`, { method: "POST", form: `grant_type=refresh_token&refresh_token=${encodeURIComponent(session.refresh_token)}` });
+      saveSession({ ...session, access_token: j.id_token, refresh_token: j.refresh_token, expires_at: Math.floor(Date.now() / 1000) + Number(j.expires_in || 3600) });
     } catch (e) {
-      if (e.status === 400 || e.status === 401 || e.status === 403) { saveSession(null); setSync("out"); renderAuth(); } // ログインの有効期限切れ
+      if (e.status >= 400 && e.status < 500) { saveSession(null); setSync("out"); renderAuth(); } // ログインの有効期限切れ・アカウント削除など
       throw e;
     } finally { refreshing = null; }
   })();
@@ -62,13 +76,10 @@ async function ensureFresh() {
 
 // ---------- ログイン・登録 ----------
 async function signIn(email, password) {
-  const j = await api("/auth/v1/token?grant_type=password", { method: "POST", body: { email, password }, auth: false });
-  await onSignedIn(toSession(j));
+  await onSignedIn(toSession(await identity("accounts:signInWithPassword", { email, password, returnSecureToken: true })));
 }
 async function signUp(email, password) {
-  const j = await api("/auth/v1/signup", { method: "POST", body: { email, password }, auth: false });
-  if (j && j.access_token) { await onSignedIn(toSession(j)); return "ok"; }
-  return "confirm"; // メール確認が必要な設定のとき
+  await onSignedIn(toSession(await identity("accounts:signUp", { email, password, returnSecureToken: true })));
 }
 async function onSignedIn(s) {
   // この端末に別アカウントのデータが残っているときは、混ざらないように消してから読み込む
@@ -83,15 +94,62 @@ async function onSignedIn(s) {
 }
 function wipeLocal() {
   const n = newProfile("受講生 1");
-  store.profiles = [n]; store.currentId = n.id; store.deleted = []; store.owner = null; persist();
+  store.profiles = [n]; store.currentId = n.id; store.deleted = []; store.owner = null; store.remoteRev = null; persist();
   switchProfileLoaded();
 }
 async function signOut(wipe) {
   if (wipe) await syncNow().catch(() => {}); // 消す前に、送れていない変更をできるだけ送る
-  try { await api("/auth/v1/logout", { method: "POST" }); } catch (e) {}
   saveSession(null); setSync("out");
   if (wipe) wipeLocal();
   renderAuth(); updateAuthButton();
+}
+
+// ---------- Firestore(受講生プランは lifeplanUsers/{uid}/plans/{planId} に保存) ----------
+const docsRoot = () => `projects/${FB.project}/databases/(default)/documents`;
+const userDoc = () => `${docsRoot()}/lifeplanUsers/${session.user.id}`;
+const planName = id => `${userDoc()}/plans/${id}`;
+const sv = v => ({ stringValue: String(v ?? "") });
+const iv = v => ({ integerValue: String(Math.round(Number(v) || 0)) });
+const lastId = n => n.split("/").pop();
+
+// 更新の目印(rev): 他の端末が書き込むたびに変わる。変化がなければ、一覧の取得を省いて読み取り回数を抑える
+async function remoteRev() {
+  try { const d = await authed(`${FB.store}/v1/${userDoc()}`); return Number(d.fields && d.fields.rev ? d.fields.rev.integerValue : 0) || null; }
+  catch (e) { if (e.status === 404) return null; throw e; }
+}
+async function remoteList() {
+  const out = []; let tok = "";
+  do {
+    const j = await authed(`${FB.store}/v1/${userDoc()}/plans?pageSize=300&mask.fieldPaths=updatedMs${tok ? `&pageToken=${encodeURIComponent(tok)}` : ""}`);
+    for (const d of (j && j.documents) || []) out.push({ id: lastId(d.name), updated_ms: Number(d.fields && d.fields.updatedMs ? d.fields.updatedMs.integerValue : 0) });
+    tok = (j && j.nextPageToken) || "";
+  } while (tok);
+  return out;
+}
+async function remoteGet(ids) {
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const res = await authed(`${FB.store}/v1/${docsRoot()}:batchGet`, { method: "POST", json: { documents: ids.slice(i, i + 50).map(planName) } });
+    for (const r of res || []) {
+      if (!r.found) continue;
+      const f = r.found.fields || {};
+      try { rows.push({ id: lastId(r.found.name), name: f.name ? f.name.stringValue : "", memo: f.memo ? f.memo.stringValue : "", data: JSON.parse(f.dataJson.stringValue),
+        created_ms: Number(f.createdMs ? f.createdMs.integerValue : 0), updated_ms: Number(f.updatedMs ? f.updatedMs.integerValue : 0) }); } catch (e) {}
+    }
+  }
+  return rows;
+}
+// 書き込み(追加・更新・削除)をまとめて送る。送ったあとの rev を返す
+async function remoteCommit(upserts, deleteIds) {
+  const rev = Date.now(), ops = [];
+  for (const p of upserts) ops.push({ update: { name: planName(p.id), fields: { name: sv(p.name), memo: sv(p.memo), dataJson: sv(JSON.stringify(p.data)), createdMs: iv(p.createdAt), updatedMs: iv(p.updatedAt) } } });
+  for (const id of deleteIds) ops.push({ delete: planName(id) });
+  for (let i = 0; i < ops.length; i += 100) {
+    const chunk = ops.slice(i, i + 100);
+    chunk.push({ update: { name: userDoc(), fields: { rev: iv(rev) } } });
+    await authed(`${FB.store}/v1/${docsRoot()}:commit`, { method: "POST", json: { writes: chunk } });
+  }
+  return rev;
 }
 
 // ---------- 同期 ----------
@@ -106,7 +164,6 @@ function removeLocal(id) {
   persist();
   if (wasCurrent) switchProfileLoaded();
 }
-const inList = ids => `(${ids.map(encodeURIComponent).join(",")})`;
 
 async function syncNow() {
   if (!session) return;
@@ -115,14 +172,16 @@ async function syncNow() {
   let applied = 0;
   try {
     save(); // 入力中の内容を先に保存
-    // 1. 端末で削除したプランを、サーバーからも削除
-    if (store.deleted.length) {
-      await api(`/rest/v1/plans?id=in.${inList(store.deleted)}`, { method: "DELETE" });
-      store.deleted = []; persist();
-    }
-    // 2. サーバー側の一覧(更新時刻だけ)を取得して、差分を判定
-    const remote = await api("/rest/v1/plans?select=id,updated_ms");
-    const rmap = new Map((remote || []).map(r => [r.id, Number(r.updated_ms)]));
+    // 端末側に未送信の変更がなく、サーバー側にも更新がなければ、ここで終了(読み取り1回)
+    const hasLocalChanges = store.deleted.length > 0 || store.profiles.some(p => p.dirty && !isPristine(p));
+    const rev = await remoteRev();
+    if (!hasLocalChanges && rev !== null && rev === store.remoteRev) { setSync("idle", { at: Date.now() }); return; }
+
+    // 1. サーバー側の一覧(更新時刻だけ)を取得して、差分を判定
+    const remote = await remoteList();
+    const rmap = new Map(remote.map(r => [r.id, r.updated_ms]));
+    const delIds = store.deleted.filter(id => rmap.has(id));   // 端末で削除したプラン(サーバーに残っているもの)
+    for (const id of delIds) rmap.delete(id);
     const up = [], down = [];
     for (const p of store.profiles.slice()) {
       const r = rmap.get(p.id);
@@ -136,30 +195,29 @@ async function syncNow() {
       } else if (p.dirty && !isPristine(p)) up.push(p);                            // 端末側だけ更新
       rmap.delete(p.id);
     }
-    for (const id of rmap.keys()) if (!store.deleted.includes(id)) down.push(id);  // 他の端末で作られたプラン
-    // 3. 送信
-    if (up.length) {
+    for (const id of rmap.keys()) down.push(id);                                   // 他の端末で作られたプラン
+    // 2. 送信(追加・更新・削除)
+    let newRev = rev;
+    if (up.length || delIds.length) {
       const snap = up.map(p => ({ p, ms: p.updatedAt }));
-      await api("/rest/v1/plans?on_conflict=user_id,id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: up.map(p => ({ user_id: session.user.id, id: p.id, name: p.name || "", memo: p.memo || "", data: p.data, created_ms: p.createdAt, updated_ms: p.updatedAt })) });
+      newRev = await remoteCommit(up, delIds);
       for (const { p, ms } of snap) { p.syncedMs = ms; if (p.updatedAt === ms) p.dirty = false; } // 送信中にさらに編集されていたら、dirty のまま次回送る
-      persist();
     }
-    // 4. 受信
+    store.deleted = []; // 削除はサーバー反映済み(サーバーにもともと無かったものも含む)
+    // 3. 受信
     if (down.length) {
-      const rows = await api(`/rest/v1/plans?select=id,name,memo,data,created_ms,updated_ms&id=in.${inList(down)}`);
-      for (const row of rows || []) {
+      for (const row of await remoteGet(down)) {
         let p = store.profiles.find(x => x.id === row.id);
         if (!p) { p = newProfile(row.name); p.id = row.id; store.profiles.push(p); }
         p.name = row.name; p.memo = row.memo; p.data = merge(row.data);
-        p.createdAt = Number(row.created_ms); p.updatedAt = p.syncedMs = Number(row.updated_ms); p.dirty = false;
+        p.createdAt = row.created_ms; p.updatedAt = p.syncedMs = row.updated_ms; p.dirty = false;
         if (p.id === store.currentId) { persist(); switchProfileLoaded(); }
         applied++;
       }
-      persist();
     }
-    // 5. 何も入力していない初期プランが残っていたら、他にプランがあるときは片付ける
+    // 4. 何も入力していない初期プランが残っていたら、他にプランがあるときは片付ける
     if (store.profiles.length > 1) for (const p of store.profiles.filter(isPristine)) { removeLocal(p.id); applied++; }
+    store.remoteRev = newRev; persist();
     setSync("idle", { at: Date.now() });
     if (applied && typeof profDlg !== "undefined" && profDlg.open) renderProfiles();
     updateProfileUI();
@@ -167,7 +225,7 @@ async function syncNow() {
     if (down.length && !document.getElementById("wizard").hidden && typeof wzStep !== "undefined" && wzStep === 0) closeWizard();
   } catch (e) {
     if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed/i.test(e.message)) setSync("offline");
-    else setSync("error", { msg: jpError(e.message) });
+    else setSync("error", { msg: jpError(e.fbStatus === "PERMISSION_DENIED" ? "PERMISSION_DENIED" : e.message) });
   } finally {
     syncing = false;
     if (syncAgain) { syncAgain = false; scheduleSync(300); }
@@ -191,11 +249,9 @@ function updateAuthButton() {
 }
 function renderAuth() {
   if (!SYNC_ON) return;
-  const mode = el("authDlg").dataset.mode || "out";
-  el("authOut").hidden = !!session || mode === "newpass";
-  el("authNew").hidden = mode !== "newpass";
-  el("authIn").hidden = !session || mode === "newpass";
-  el("authTitle").textContent = mode === "newpass" ? "🔑 新しいパスワード" : session ? "☁️ アカウント" : "☁️ ログイン";
+  el("authOut").hidden = !!session;
+  el("authIn").hidden = !session;
+  el("authTitle").textContent = session ? "☁️ アカウント" : "☁️ ログイン";
   if (session) {
     el("authEmailOut").textContent = session.user.email;
     el("authStatus").textContent = ({
@@ -205,12 +261,12 @@ function renderAuth() {
   }
 }
 function authMsg(t, bad) { const m = el("authMsg"); m.textContent = t || ""; m.classList.toggle("bad", !!bad); }
-function openAuth(mode) { el("authDlg").dataset.mode = mode || ""; authMsg(""); renderAuth(); el("authDlg").showModal ? el("authDlg").showModal() : el("authDlg").setAttribute("open", ""); }
+function openAuth() { authMsg(""); renderAuth(); el("authDlg").showModal ? el("authDlg").showModal() : el("authDlg").setAttribute("open", ""); }
 const closeAuth = () => (el("authDlg").close ? el("authDlg").close() : el("authDlg").removeAttribute("open"));
 
 async function busy(btn, fn) {
-  const label = btn.textContent; btn.disabled = true; authMsg("");
-  try { await fn(); } catch (e) { authMsg(jpError(e.message), true); } finally { btn.disabled = false; btn.textContent = label; }
+  btn.disabled = true; authMsg("");
+  try { await fn(); } catch (e) { authMsg(jpError(e.message), true); } finally { btn.disabled = false; }
 }
 
 // ---------- 起動 ----------
@@ -218,8 +274,8 @@ if (SYNC_ON) {
   el("openAuth").hidden = false;
   if (el("wzLogin")) el("wzLogin").hidden = false;
   updateAuthButton();
-  el("openAuth").onclick = () => openAuth(session ? "in" : "out");
-  if (el("wzLogin")) el("wzLogin").onclick = () => openAuth("out");
+  el("openAuth").onclick = openAuth;
+  if (el("wzLogin")) el("wzLogin").onclick = openAuth;
   el("authClose").onclick = closeAuth;
   el("authDlg").addEventListener("click", e => { if (e.target === el("authDlg")) closeAuth(); });
 
@@ -229,45 +285,21 @@ if (SYNC_ON) {
   el("authSignup").onclick = ev => busy(ev.target, async () => {
     const { email, password } = creds();
     if (!el("authForm").reportValidity()) return;
-    const r = await signUp(email, password);
-    if (r === "confirm") authMsg("確認メールを送りました。メール内のリンクを開いてから、ログインしてください。");
-    else { el("authPass").value = ""; closeAuth(); }
+    await signUp(email, password);
+    if (session) { el("authPass").value = ""; closeAuth(); }
   });
   el("authForgot").onclick = ev => busy(ev.target, async () => {
     const email = el("authEmail").value.trim();
     if (!email) { authMsg("上のメールアドレス欄に、登録したメールアドレスを入れてください。", true); return; }
-    const redirect = encodeURIComponent(location.origin + location.pathname);
-    await api(`/auth/v1/recover?redirect_to=${redirect}`, { method: "POST", body: { email }, auth: false });
-    authMsg("パスワード再設定のメールを送りました。メール内のリンクを開いてください。");
+    await identity("accounts:sendOobCode", { requestType: "PASSWORD_RESET", email });
+    authMsg("パスワード再設定のメールを送りました。メール内のリンクで新しいパスワードを設定してから、ここでログインしてください。");
   });
-  el("authNewForm").addEventListener("submit", ev => { ev.preventDefault();
-    busy(el("authNewBtn"), async () => {
-      await api("/auth/v1/user", { method: "PUT", body: { password: el("authNewPass").value } });
-      el("authDlg").dataset.mode = ""; el("authNewPass").value = "";
-      await onSignedIn(session); closeAuth();
-    }); });
-  el("authSyncNow").onclick = ev => busy(ev.target, () => syncNow());
+  el("authSyncNow").onclick = ev => busy(ev.target, () => { store.remoteRev = null; return syncNow(); });
   el("authLogout").onclick = async ev => {
     if (!confirm("ログアウトしますか?")) return;
     const wipe = confirm("この端末に保存されている受講生のプランも削除しますか?\n\n・OK: 削除する(共有の端末向け。アカウントにはデータが残るので、再ログインで復元できます)\n・キャンセル: この端末に残す");
     await busy(ev.target, () => signOut(wipe)); closeAuth();
   };
-
-  // メールのリンク(登録確認・パスワード再設定)から戻ってきたとき
-  (async () => {
-    const h = new URLSearchParams(location.hash.replace(/^#/, ""));
-    if (h.get("access_token") && h.get("refresh_token")) {
-      history.replaceState(null, "", location.pathname + location.search);
-      try {
-        const tmp = { access_token: h.get("access_token"), refresh_token: h.get("refresh_token"), expires_at: Number(h.get("expires_at")) || Math.floor(Date.now() / 1000) + Number(h.get("expires_in") || 3600), user: { id: "", email: "" } };
-        saveSession(tmp);
-        const u = await api("/auth/v1/user");
-        saveSession({ ...tmp, user: { id: u.id, email: u.email } });
-        if (h.get("type") === "recovery") { openAuth("newpass"); }
-        else { await onSignedIn(session); }
-      } catch (e) { saveSession(null); openAuth("out"); authMsg("リンクの有効期限が切れています。もう一度お試しください。", true); }
-    }
-  })();
 
   // 自動で同期するタイミング: 開いたとき・画面に戻ったとき・オンラインに戻ったとき・開いている間は定期的に
   if (session) syncNow();
