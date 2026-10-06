@@ -6,17 +6,102 @@
 <title>ライフプランシミュレーター</title>
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#2f6fed">
+<meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ライフプラン">
 </head>
 <body>
-<header><h1>ライフプランシミュレーター</h1><p>金額の単位は万円です。入力はこのブラウザに自動保存されます。</p></header>
+<header class="hero">
+  <div class="hero-in">
+    <div>
+      <h1>ライフプラン<span>シミュレーター</span></h1>
+      <p>老後までのお金の流れを見える化</p>
+    </div>
+    <button type="button" id="openWizard" class="pill">✏️ 質問に答えて入力</button>
+  </div>
+</header>
+
+<section id="wizard" hidden aria-label="かんたん入力">
+  <div class="wz-card">
+    <div class="wz-progress" aria-hidden="true"><div id="wzBar"></div></div>
+
+    <div class="wz-step" data-step="0">
+      <div class="wz-emoji">🌱</div>
+      <h2>あなたのお金の未来を、<br>3分で見える化</h2>
+      <ul class="wz-points">
+        <li><b>5つの質問</b>に答えるだけ。難しい言葉は使いません</li>
+        <li><b>登録不要</b>。入力内容はこの端末の中だけに保存されます</li>
+        <li>細かい条件は、<b>あとから自由に調整</b>できます</li>
+      </ul>
+    </div>
+
+    <div class="wz-step" data-step="1" hidden>
+      <div class="wz-q">質問 1 / 5</div>
+      <h2>まず、あなたのことを教えてください</h2>
+      <label class="wz-field">いま何歳ですか?<span class="wz-input"><input type="number" data-k="age" min="0" max="100"><em>歳</em></span></label>
+      <label class="wz-field">何歳まで働く予定ですか?<span class="wz-input"><input type="number" data-k="retireAge" min="0" max="100"><em>歳</em></span></label>
+      <label class="wz-field">1年間の手取り収入は?<span class="wz-input"><input type="number" data-k="income" step="10"><em>万円</em></span><small>会社員なら額面年収の約8割が目安です。ボーナス込みで入れてください。</small></label>
+    </div>
+
+    <div class="wz-step" data-step="2" hidden>
+      <div class="wz-q">質問 2 / 5</div>
+      <h2>いまある貯蓄を教えてください</h2>
+      <label class="wz-field">預貯金(普通預金・定期預金など)<span class="wz-input"><input type="number" id="wzCash" min="0" step="10"><em>万円</em></span></label>
+      <label class="wz-field">投資(株式・投資信託・iDeCoなど)<span class="wz-input"><input type="number" id="wzInvest" min="0" step="10"><em>万円</em></span><small>だいたいでOKです。ローンや保険は、あとから詳しく入力できます。</small></label>
+    </div>
+
+    <div class="wz-step" data-step="3" hidden>
+      <div class="wz-q">質問 3 / 5</div>
+      <h2>ご家族について教えてください</h2>
+      <label class="wz-check"><input type="checkbox" data-k="spouse.enabled"><span>配偶者・パートナーがいる(または将来一緒に暮らす)</span></label>
+      <div id="wzSpouse">
+        <label class="wz-field">配偶者の年齢<span class="wz-input"><input type="number" data-k="spouse.age" min="0" max="100"><em>歳</em></span></label>
+        <label class="wz-field">配偶者の手取り年収<span class="wz-input"><input type="number" data-k="spouse.income" step="10"><em>万円</em></span><small>専業主婦(夫)の場合は0にしてください。</small></label>
+      </div>
+      <label class="wz-field">子どもの人数
+        <select id="wzChildCount"><option value="0">いない</option><option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option></select>
+      </label>
+      <div id="wzChildAge"><label class="wz-field">いちばん上の子の年齢<span class="wz-input"><input type="number" id="wzEldest" min="0" max="30"><em>歳</em></span><small>2人目以降は3歳差で仮置きしています。進路や年齢は、あとから詳しく設定できます。</small></label></div>
+      <p class="hint" id="wzChildCustom" hidden>子どもの情報は、すでに詳細設定で入力済みです。変更は結果画面の「子ども」から行えます。</p>
+    </div>
+
+    <div class="wz-step" data-step="4" hidden>
+      <div class="wz-q">質問 4 / 5</div>
+      <h2>住まいについて教えてください</h2>
+      <label class="wz-field">いまの住まいは?
+        <select data-k="housing.type"><option value="rent">賃貸に住んでいる(この先も賃貸)</option><option value="own">持ち家(ローン返済中・完済済み)</option><option value="buy">賃貸だが、将来家を買う予定</option></select>
+      </label>
+      <div id="wzRent"><label class="wz-field">毎月の家賃<span class="wz-input"><input type="number" id="wzRentM" min="0" step="0.5"><em>万円/月</em></span></label></div>
+      <div id="wzOwn">
+        <label class="wz-field">住宅ローンの残高(完済済みは0)<span class="wz-input"><input type="number" data-k="housing.ownLoan" step="100"><em>万円</em></span></label>
+        <label class="wz-field">ローンの残り年数<span class="wz-input"><input type="number" data-k="housing.ownYears" min="0" max="50"><em>年</em></span></label>
+      </div>
+      <div id="wzBuy">
+        <label class="wz-field">何歳で買う予定ですか?<span class="wz-input"><input type="number" data-k="housing.buyAge" min="0" max="100"><em>歳</em></span></label>
+        <label class="wz-field">物件の価格<span class="wz-input"><input type="number" data-k="housing.price" step="100"><em>万円</em></span><small>頭金・金利・返済年数は、あとから詳しく設定できます。</small></label>
+      </div>
+    </div>
+
+    <div class="wz-step" data-step="5" hidden>
+      <div class="wz-q">質問 5 / 5</div>
+      <h2>毎月の生活費はどのくらいですか?</h2>
+      <label class="wz-field">食費・光熱費・通信費・日用品・娯楽などの合計<span class="wz-input"><input type="number" id="wzLiving" min="0" step="1"><em>万円/月</em></span><small>家賃・ローン・子どもの費用は含めません。迷ったら、そのままでもOKです(内訳は、あとから項目ごとに設定できます)。</small></label>
+    </div>
+
+    <div class="wz-preview" id="wzPreview" hidden></div>
+
+    <div class="wz-nav">
+      <button type="button" id="wzBack" class="secondary">戻る</button>
+      <button type="button" id="wzNext" class="primary">はじめる</button>
+    </div>
+    <button type="button" id="wzSkip" class="link">入力せずにサンプルの結果を見る</button>
+  </div>
+</section>
 <main>
-  <section class="panel" id="inputs">
-    <details open><summary>本人・基本設定</summary>
+  <section id="inputs"><h2 class="section-title">条件を調整する</h2>
+    <details open><summary>🙋 本人・基本設定</summary>
       <div class="grid">
         <label>現在の年齢<input type="number" data-k="age" min="0" max="100"></label>
         <label>退職年齢<input type="number" data-k="retireAge" min="0" max="100"></label>
@@ -40,21 +125,21 @@
       </div>
     </details>
 
-    <details open><summary>生活費(月額)</summary>
+    <details open><summary>🍚 生活費(月額)</summary>
       <p class="hint">毎月かかる生活費を項目ごとに入力します(万円/月)。住居費・子ども費用・ローン返済は別に入力するので含めないでください。年額は自動で計算されます。</p>
       <div id="livingRows"></div>
       <button type="button" id="addLiving" class="secondary">+ 項目を追加</button>
       <p class="living-total" id="livingTotal"></p>
     </details>
 
-    <details open><summary>家計・運用</summary>
+    <details open><summary>📈 退職後・物価</summary>
       <div class="grid">
         <label>退職後の生活費比率 (%)<input type="number" data-k="retireLivingRatio" step="5"></label>
         <label>物価上昇率 (%/年)<input type="number" data-k="inflation" step="0.1"></label>
       </div>
     </details>
 
-    <details open><summary>現在の資産・負債</summary>
+    <details open><summary>💰 現在の資産・負債</summary>
       <p class="hint">資産は内訳ごとに金額と想定利回りを入力します。シミュレーションでは全体を加重平均利回りで運用します。ローンは毎年の返済額として支出に含まれます(資産からは差し引きません)。</p>
       <ul id="assetList"></ul>
       <form id="assetForm" class="item-form">
@@ -74,7 +159,7 @@
       </form>
     </details>
 
-    <details><summary>配偶者</summary>
+    <details><summary>💑 配偶者</summary>
       <label class="check"><input type="checkbox" data-k="spouse.enabled"> 配偶者を含める</label>
       <div class="grid">
         <label>配偶者の現在の年齢<input type="number" data-k="spouse.age" min="0" max="100"></label>
@@ -98,7 +183,7 @@
       </div>
     </details>
 
-    <details><summary>子ども</summary>
+    <details><summary>👶 子ども</summary>
       <p class="hint">年齢は現在の年齢です。これから生まれる場合は負の数(例: -2 = 2年後に誕生)。学費は目安の平均値で、養育費は下の金額で調整できます。</p>
       <div class="grid"><label>養育費(1人あたり年額・0〜21歳)<input type="number" data-k="childCost" step="5"></label></div>
       <ul id="childList"></ul>
@@ -110,7 +195,7 @@
       </form>
     </details>
 
-    <details><summary>住居</summary>
+    <details><summary>🏠 住居</summary>
       <div class="grid">
         <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
         <label id="rentLabel">家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
@@ -135,7 +220,7 @@
       <p class="hint" id="loanInfo"></p>
     </details>
 
-    <details><summary>ライフイベント</summary>
+    <details><summary>🎯 ライフイベント</summary>
       <p class="hint">支出は正の数、収入(相続など)は負の数で入力します。</p>
       <ul id="eventList"></ul>
       <form id="eventForm" class="event-form">
@@ -155,14 +240,14 @@
   </section>
 
   <section class="panel" id="results">
-    <h2>結果</h2>
+    <div id="verdict" class="verdict"></div>
     <div class="cards" id="cards"></div>
     <div id="chart" role="img" aria-label="年齢ごとの資産残高の推移グラフ"></div>
     <div class="actions no-print">
       <button type="button" id="exportCsv">キャッシュフロー表をCSV出力</button>
       <button type="button" id="print" class="secondary">印刷 / PDF保存</button>
     </div>
-    <details id="tableBox" open><summary>キャッシュフロー表</summary>
+    <details id="tableBox" open><summary>📋 キャッシュフロー表</summary>
       <div class="table-wrap"><table id="table"></table></div>
     </details>
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
@@ -170,6 +255,7 @@
 </main>
 <script src="calc.js"></script>
 <script src="app.js"></script>
+<script src="wizard.js"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>

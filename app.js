@@ -46,10 +46,13 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catc
 const inputs = [...document.querySelectorAll("[data-k]")];
 function getPath(k) { return k.split(".").reduce((o, key) => o[key], state); }
 function setPath(k, v) { const ks = k.split("."), last = ks.pop(); ks.reduce((o, key) => o[key], state)[last] = v; }
-function writeInputs() {
+// state → 画面の入力欄。質問画面と詳細設定で同じ項目を共有するため、入力中の欄以外をそろえる。
+function writeInputs(skipActive = false) {
   for (const el of inputs) {
+    if (skipActive && el === document.activeElement) continue;
     const v = getPath(el.dataset.k);
-    if (el.type === "checkbox") el.checked = !!v; else el.value = v;
+    if (el.type === "checkbox") el.checked = !!v;
+    else el.value = v === 0 && el.placeholder ? "" : v; // 空欄に意味がある欄(0=未設定)は空欄に戻す
   }
 }
 function readInput(el) {
@@ -109,26 +112,41 @@ function renderCards(r) {
 }
 
 function renderChart(rows) {
-  const W = 700, H = 320, m = { l: 56, r: 12, t: 16, b: 28 };
+  const W = 700, H = 320, m = { l: 56, r: 14, t: 18, b: 30 };
   let max = Math.max(0, ...rows.map(r => r.balance)), min = Math.min(0, ...rows.map(r => r.balance));
   if (max === min) max = min + 1;
   const x = i => m.l + (W - m.l - m.r) * (rows.length > 1 ? i / (rows.length - 1) : 0);
   const y = v => m.t + (H - m.t - m.b) * (1 - (v - min) / (max - min));
-  const path = rows.map((r, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(r.balance).toFixed(1)}`).join("");
+  const pts = rows.map((r, i) => `${x(i).toFixed(1)},${y(r.balance).toFixed(1)}`);
+  const line = "M" + pts.join("L");
+  const area = `${line}L${x(rows.length - 1).toFixed(1)},${y(0).toFixed(1)}L${x(0).toFixed(1)},${y(0).toFixed(1)}Z`;
   let g = "";
   for (let k = 0; k <= 4; k++) {
     const v = min + (max - min) * k / 4;
-    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/>` +
-         `<text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="currentColor">${fmt(v)}</text>`;
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" class="grid-line"/>` +
+         `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" class="axis">${fmt(v)}</text>`;
   }
-  const step = Math.max(1, Math.ceil(rows.length / 8));
-  rows.forEach((r, i) => { if (i % step === 0) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="currentColor">${r.age}歳</text>`; });
+  const step = Math.max(1, Math.ceil(rows.length / 7));
+  rows.forEach((r, i) => { if (i % step === 0) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" class="axis">${r.age}歳</text>`; });
   const marks = rows.map((r, i) => r.eventNames ?
-    `<circle cx="${x(i)}" cy="${y(r.balance)}" r="4" fill="var(--accent)"><title>${r.age}歳 ${esc(r.eventNames)}</title></circle>` : "").join("");
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}
-    <line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" stroke="var(--bad)" stroke-dasharray="4"/>
-    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${marks}
-    <text x="${m.l}" y="10" font-size="11" fill="currentColor">資産残高(万円)</text></svg>`;
+    `<circle cx="${x(i)}" cy="${y(r.balance)}" r="5" class="mark"><title>${r.age}歳 ${esc(r.eventNames)}</title></circle>` : "").join("");
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color:var(--accent);stop-opacity:.28"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:0"/></linearGradient></defs>
+    ${g}<line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" class="zero-line"/>
+    <path d="${area}" fill="url(#areaG)"/><path d="${line}" class="series"/>${marks}
+    <text x="${m.l}" y="10" class="axis">資産残高(万円)</text></svg>`;
+}
+
+function renderVerdict(r) {
+  const el = $("verdict");
+  if (r.depletedAge === null) {
+    el.className = "verdict ok";
+    el.innerHTML = `<div class="verdict-icon">🎉</div><div><strong>${state.endAge}歳まで、資産は尽きない見込みです</strong><span>退職時の資産は約${fmt(r.retireBalance ?? r.finalBalance)}万円。条件を変えると、結果がすぐに変わります。</span></div>`;
+  } else {
+    el.className = "verdict ng";
+    el.innerHTML = `<div class="verdict-icon">⚠️</div><div><strong>${r.depletedAge}歳ごろに、資産が尽きる見込みです</strong><span>生活費や住居費の見直し、働く期間を延ばす、運用を増やす、などで変わります。条件を変えて試してみましょう。</span></div>`;
+  }
 }
 
 const COLS = [
@@ -168,7 +186,7 @@ function update() {
   state.living = state.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
   $("livingTotal").textContent = `月額合計 ${(state.living / 12).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円 / 年額 ${fmt(state.living)}万円`;
   result = LifePlan.simulate(state);
-  renderLists(); renderCards(result); renderChart(result.rows); renderTable(result.rows);
+  renderVerdict(result); renderLists(); renderCards(result); renderChart(result.rows); renderTable(result.rows);
   $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円 / 加重平均利回り ${result.returnRate.toFixed(2)}%` +
     (result.debtTotal ? ` / ローン残高合計 ${fmt(result.debtTotal)}万円(純資産 ${fmt(result.assetTotal - result.debtTotal)}万円)` : "");
   for (const [key, person, est] of [["Me", state, result.myPension], ["Sp", state.spouse, result.spousePension]]) {
@@ -191,7 +209,9 @@ function update() {
     ? `借入額 ${fmt(h.price - h.down)}万円 / 年間返済額 約${fmt(LifePlan.annualPayment(h.price - h.down, h.rate, h.years))}万円`
     : h.type === "own"
       ? `年間返済額 約${fmt(LifePlan.annualPayment(h.ownLoan, h.ownRate, h.ownYears))}万円(${h.ownYears}年間) / 返済後の年間住居費 約${fmt(h.ownMgmt * 12 + h.ownTax + h.ownRepair)}万円` : "";
+  writeInputs(true);
   save();
+  if (typeof afterUpdate === "function") afterUpdate();
 }
 
 inputs.forEach(el => el.addEventListener("input", () => { readInput(el); update(); }));
