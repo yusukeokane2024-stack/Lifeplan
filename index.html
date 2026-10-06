@@ -20,9 +20,30 @@
       <h1>ライフプラン<span>シミュレーター</span></h1>
       <p>老後までのお金の流れを見える化</p>
     </div>
-    <button type="button" id="openWizard" class="pill">✏️ 質問に答えて入力</button>
+    <div class="hero-btns">
+      <button type="button" id="openProfiles" class="pill" aria-haspopup="dialog">👥 <span id="profName">受講生</span> ▾</button>
+      <button type="button" id="openWizard" class="pill">✏️ 質問に答えて入力</button>
+    </div>
   </div>
 </header>
+
+<dialog id="profDlg" aria-labelledby="profTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="profTitle">👥 受講生プラン管理</h2><button type="button" id="profClose" class="secondary">閉じる</button></div>
+    <p class="hint">受講生ごとにプランを保存できます。入力内容は<b>自動で保存</b>され、いつでも開いて編集できます。データはこの端末(ブラウザ)の中に保存されます。</p>
+    <div class="dlg-tools">
+      <input type="search" id="profSearch" placeholder="名前・メモで検索" aria-label="受講生を検索">
+      <button type="button" id="profNew">＋ 新しい受講生</button>
+    </div>
+    <div id="profList"></div>
+    <div class="actions">
+      <button type="button" id="profBackup" class="secondary">全員分をバックアップ</button>
+      <button type="button" id="profRestore" class="secondary">バックアップから復元</button>
+      <input type="file" id="profFile" accept="application/json,.json" hidden>
+    </div>
+    <p class="hint">バックアップ(JSON)は別の端末への移行にも使えます。ブラウザのデータを消すとプランも消えるので、定期的にバックアップしてください。</p>
+  </div>
+</dialog>
 
 <section id="wizard" hidden aria-label="かんたん入力">
   <div class="wz-card">
@@ -41,6 +62,7 @@
     <div class="wz-step" data-step="1" hidden>
       <div class="wz-q">質問 1 / 5</div>
       <h2>まず、あなたのことを教えてください</h2>
+      <label class="wz-field">お名前(レポートに表示されます)<span class="wz-input"><input type="text" id="wzName" maxlength="30" placeholder="例: 山田 太郎" autocomplete="name"></span></label>
       <label class="wz-field">いま何歳ですか?<span class="wz-input"><input type="number" data-k="age" min="0" max="100"><em>歳</em></span></label>
       <label class="wz-field">何歳まで働く予定ですか?<span class="wz-input"><input type="number" data-k="retireAge" min="0" max="100"><em>歳</em></span></label>
       <label class="wz-field">1年間の手取り収入は?<span class="wz-input"><input type="number" data-k="income" step="10"><em>万円</em></span><small>会社員なら額面年収の約8割が目安です。ボーナス込みで入れてください。</small></label>
@@ -237,8 +259,8 @@
     </details>
 
     <div class="actions">
-      <button type="button" id="exportJson" class="secondary">データを保存(JSON)</button>
-      <button type="button" id="importJson" class="secondary">データを読込</button>
+      <button type="button" id="exportJson" class="secondary">このプランを書き出す</button>
+      <button type="button" id="importJson" class="secondary">プランを読み込む</button>
       <button type="button" id="reset" class="secondary">初期値に戻す</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
@@ -250,7 +272,6 @@
     <p class="effect" id="effect"></p>
     <div id="chart" role="img" aria-label="年齢ごとの資産残高の推移グラフ"></div>
     <div class="report-box">
-      <label>レポートに載せるお名前(任意)<input type="text" id="reportName" placeholder="例: 山田 太郎" maxlength="30" autocomplete="name"></label>
       <div class="actions">
         <button type="button" id="pdfBtn">📄 PDFレポートを出力</button>
         <button type="button" id="exportCsv" class="secondary">CSV出力</button>
@@ -265,6 +286,7 @@
 <script src="calc.js"></script>
 <script src="app.js"></script>
 <script src="wizard.js"></script>
+<script src="profiles.js"></script>
 <script src="report.js"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>

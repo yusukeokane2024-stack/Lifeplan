@@ -19,10 +19,8 @@ const DEFAULTS = {
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20 },
-  reportName: "",
   events: [{ name: "車の購入", age: 35, amount: 250 }, { name: "車の買い替え", age: 45, amount: 250 }],
 };
-const KEY = "lifeplan.v2";
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString("ja-JP");
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -43,10 +41,39 @@ function merge(s) {
   out.debts = Array.isArray(s.debts) ? s.debts : [];
   out.children = Array.isArray(s.children) ? s.children : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
+  out.living = out.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
   return out;
 }
-let state = (() => { try { return merge(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return merge(null); } })();
-function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+// ---- 受講生ごとのプラン保存(この端末のブラウザ内) ----
+const STORE_KEY = "lifeplan.profiles.v1", LEGACY_KEY = "lifeplan.v2";
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function newProfile(name, data) { return { id: uid(), name, memo: "", createdAt: Date.now(), updatedAt: Date.now(), data: data || merge(null) }; }
+function loadStore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (s && Array.isArray(s.profiles) && s.profiles.length) {
+      if (!s.profiles.some(p => p.id === s.currentId)) s.currentId = s.profiles[0].id;
+      return s;
+    }
+  } catch (e) {}
+  // 旧形式(プランが1つだけ)からの移行
+  let legacy = null;
+  try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY)); } catch (e) {}
+  const p = newProfile((legacy && legacy.reportName) || "受講生 1", legacy ? merge(legacy) : null);
+  return { currentId: p.id, profiles: [p] };
+}
+let store = loadStore();
+const currentProfile = () => store.profiles.find(p => p.id === store.currentId);
+let state = merge(currentProfile().data);
+let lastSig = JSON.stringify(state), quietSave = true; // 開いただけでは「最終更新」を変えない
+function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
+function save() {
+  const p = currentProfile(), sig = JSON.stringify(state);
+  if (sig !== lastSig) { if (!quietSave) p.updatedAt = Date.now(); lastSig = sig; }
+  p.data = state;
+  persist();
+}
 
 // data-k="spouse.income" のようなパスで state を読み書きする
 const inputs = [...document.querySelectorAll("[data-k]")];
@@ -302,11 +329,9 @@ $("eventForm").addEventListener("submit", ev => {
   state.events.push({ name: $("evName").value.trim(), age: parseInt($("evAge").value, 10), amount: parseFloat($("evAmount").value) });
   ev.target.reset(); refresh();
 });
-$("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); refresh(); } };
+$("reset").onclick = () => { if (confirm("このプランの入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); refresh(); } };
 $("exportCsv").onclick = () => download("lifeplan-cashflow.csv", toCsv(result.rows), "text/csv;charset=utf-8");
 $("pdfBtn").onclick = () => exportPdf();
-$("reportName").value = state.reportName || "";
-$("reportName").addEventListener("input", e => { state.reportName = e.target.value; save(); });
 $("exportJson").onclick = () => download("lifeplan-data.json", JSON.stringify(state, null, 2), "application/json");
 $("importJson").onclick = () => $("importFile").click();
 $("importFile").onchange = async ev => {
@@ -323,4 +348,4 @@ document.querySelectorAll('input[type="number"]').forEach(el => {
   el.inputMode = /\./.test(el.step) ? "decimal" : "numeric";
 });
 
-writeInputs(); refresh();
+writeInputs(); refresh(); quietSave = false;

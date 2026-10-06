@@ -14,6 +14,7 @@ function assetByName(name, rate, type) {
 const isGeneratedChildren = () => state.children.every(c => /^子ども\d$/.test(c.name));
 
 function setupWizardInputs() {
+  wz("wzName").addEventListener("input", e => { currentProfile().name = e.target.value; persist(); updateProfileUI(); });
   wz("wzCash").addEventListener("input", e => { assetByName("預貯金", 0.1, "cash").amount = numVal(e.target); refresh(); });
   wz("wzInvest").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").amount = numVal(e.target); refresh(); });
   wz("wzMonthly").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").monthly = numVal(e.target); refresh(); });
@@ -43,6 +44,7 @@ function setupWizardInputs() {
 function afterUpdate() {
   const set = (id, v) => { const el = wz(id); if (el !== document.activeElement) el.value = v; };
   const asset = n => state.assets.find(x => x.name === n);
+  set("wzName", currentProfile().name);
   set("wzCash", asset("預貯金") ? asset("預貯金").amount : 0);
   set("wzInvest", asset("投資信託・株式") ? asset("投資信託・株式").amount : 0);
   set("wzMonthly", asset("投資信託・株式") ? asset("投資信託・株式").monthly : 0);

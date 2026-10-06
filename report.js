@@ -125,7 +125,7 @@ function buildReport() {
   const now = new Date(), y0 = now.getFullYear();
   RP_DATE = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
   const rows = rows0.map((r, i) => ({ ...r, year: y0 + i }));
-  const name = (S.reportName || "").trim();
+  const name = (currentProfile().name || "").trim();
   const who = name ? `${esc(name)}さま` : "あなた";
   const root = document.createElement("div"); root.className = "rp-root";
   const pages = [];
