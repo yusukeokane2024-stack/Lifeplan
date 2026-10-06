@@ -288,29 +288,33 @@
 
     <details><summary>🏠 住居</summary>
       <div class="grid">
-        <label>住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
+        <label style="grid-column:1/-1">住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
         <label id="rentLabel">家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
       </div>
       <div id="ownFields">
         <div class="grid">
           <label>ローンの入力方法<select data-k="housing.ownMode"><option value="auto">借入時の条件から自動計算</option><option value="balance">いまの残高を直接入力</option></select></label>
-          <label>金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
-          <label>1本目のローンの債務者<select data-k="protection.loanHolder"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
+          <label id="ownHolderLabel">1本目のローンの債務者<select data-k="protection.loanHolder"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
         </div>
+        <label class="check" id="ownPairCheck"><input type="checkbox" data-k="housing.ownPair"> ペアローン(夫婦がそれぞれ借りている)</label>
+
+        <h3 class="sub" id="ownLoan1Title">住宅ローン</h3>
         <div class="grid" id="ownAuto">
           <label>借入額(完済済みは0)<input type="number" data-k="housing.ownBorrow" step="100"></label>
           <label>借入した年(西暦)<input type="number" data-k="housing.ownBorrowYear" min="1980" max="2100"></label>
           <label>返済期間(総年数)<input type="number" data-k="housing.ownTerm" min="1" max="50"></label>
+          <label>金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
         </div>
         <div class="grid" id="ownBal">
           <label>いまのローン残高<input type="number" data-k="housing.ownLoan" step="100"></label>
           <label>ローン残り年数<input type="number" data-k="housing.ownYears" min="0" max="50"></label>
+          <label>金利 (%/年)<input type="number" data-k="housing.ownRate" step="0.1"></label>
         </div>
-        <label class="check" id="ownPairCheck"><input type="checkbox" data-k="housing.ownPair"> ペアローン(夫婦がそれぞれ借りている。2本目を入力)</label>
+
         <div id="ownPair2">
           <h3 class="sub">2本目のローン(債務者: <span id="ownHolder2">配偶者</span>)</h3>
           <div class="grid" id="ownAuto2">
-            <label>借入額<input type="number" data-k="housing.ownBorrow2" step="100"></label>
+            <label>借入額(完済済みは0)<input type="number" data-k="housing.ownBorrow2" step="100"></label>
             <label>借入した年(西暦)<input type="number" data-k="housing.ownBorrowYear2" min="1980" max="2100"></label>
             <label>返済期間(総年数)<input type="number" data-k="housing.ownTerm2" min="1" max="50"></label>
             <label>金利 (%/年)<input type="number" data-k="housing.ownRate2" step="0.1"></label>
@@ -321,6 +325,8 @@
             <label>金利 (%/年)<input type="number" data-k="housing.ownRate2" step="0.1"></label>
           </div>
         </div>
+
+        <h3 class="sub">維持費(住まい全体・ローンとは別)</h3>
         <div class="grid">
           <label>管理費・修繕積立金(月額・戸建ては0)<input type="number" data-k="housing.ownMgmt" step="0.5"></label>
           <label>固定資産税・都市計画税(年額)<input type="number" data-k="housing.ownTax" step="1"></label>
