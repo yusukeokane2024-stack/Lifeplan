@@ -6,30 +6,31 @@ const wz = id => document.getElementById(id);
 const numVal = el => { const v = parseFloat(el.value); return Number.isFinite(v) && v > 0 ? v : 0; };
 const round1 = v => Math.round(v * 10) / 10;
 
-function assetByName(name, rate) {
+function assetByName(name, rate, type) {
   let a = state.assets.find(x => x.name === name);
-  if (!a) { a = { name, amount: 0, rate }; state.assets.push(a); }
+  if (!a) { a = { name, type, amount: 0, rate, monthly: 0, until: 0 }; state.assets.push(a); }
   return a;
 }
 const isGeneratedChildren = () => state.children.every(c => /^子ども\d$/.test(c.name));
 
 function setupWizardInputs() {
-  wz("wzCash").addEventListener("input", e => { assetByName("預貯金", 0.1).amount = numVal(e.target); update(); });
-  wz("wzInvest").addEventListener("input", e => { assetByName("投資信託・株式", 4).amount = numVal(e.target); update(); });
+  wz("wzCash").addEventListener("input", e => { assetByName("預貯金", 0.1, "cash").amount = numVal(e.target); refresh(); });
+  wz("wzInvest").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").amount = numVal(e.target); refresh(); });
+  wz("wzMonthly").addEventListener("input", e => { assetByName("投資信託・株式", 4, "invest").monthly = numVal(e.target); refresh(); });
   wz("wzRentM").addEventListener("input", e => { state.housing.rent = round1(numVal(e.target) * 12); update(); });
   wz("wzLiving").addEventListener("input", e => {
     const total = numVal(e.target), sum = state.livingItems.reduce((t, it) => t + it.monthly, 0);
     if (sum > 0) state.livingItems.forEach(it => { it.monthly = Math.round(it.monthly * total / sum * 100) / 100; });
     else if (state.livingItems.length) state.livingItems[0].monthly = total;
     else state.livingItems.push({ name: "生活費", monthly: total });
-    renderLiving(); update();
+    refresh();
   });
   const regenChildren = () => {
     if (!isGeneratedChildren()) return;
     const n = parseInt(wz("wzChildCount").value, 10);
     const eldest = Math.max(0, parseInt(wz("wzEldest").value, 10) || 0);
     state.children = Array.from({ length: n }, (_, i) => ({ name: "子ども" + (i + 1), age: Math.max(0, eldest - 3 * i), course: "pub" }));
-    update();
+    refresh();
   };
   wz("wzChildCount").addEventListener("change", () => {
     if (isGeneratedChildren() && !wz("wzEldest").value) wz("wzEldest").value = 3;
@@ -44,6 +45,7 @@ function afterUpdate() {
   const asset = n => state.assets.find(x => x.name === n);
   set("wzCash", asset("預貯金") ? asset("預貯金").amount : 0);
   set("wzInvest", asset("投資信託・株式") ? asset("投資信託・株式").amount : 0);
+  set("wzMonthly", asset("投資信託・株式") ? asset("投資信託・株式").monthly : 0);
   set("wzRentM", round1(state.housing.rent / 12));
   set("wzLiving", round1(state.livingItems.reduce((t, it) => t + it.monthly, 0)));
   const custom = !isGeneratedChildren();

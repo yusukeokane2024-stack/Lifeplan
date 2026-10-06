@@ -8,7 +8,10 @@ const DEFAULTS = {
     { name: "保険・医療", monthly: 2 }, { name: "その他", monthly: 1 },
   ],
   retireLivingRatio: 80, inflation: 1,
-  assets: [{ name: "預貯金", amount: 200, rate: 0.1 }, { name: "投資信託・株式", amount: 100, rate: 4 }],
+  assets: [
+    { name: "預貯金", type: "cash", amount: 200, rate: 0.1, monthly: 0, until: 0 },
+    { name: "投資信託・株式", type: "invest", amount: 100, rate: 4, monthly: 3, until: 0 },
+  ],
   debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, severance: 800,
     pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
@@ -31,9 +34,11 @@ function merge(s) {
   if (!s.pensionMode && typeof s.pension === "number") out.pensionMode = "manual";
   if (s.spouse && !s.spouse.pensionMode && typeof s.spouse.pension === "number") out.spouse.pensionMode = "manual";
   // 旧形式(savings 1項目)からの移行
-  if (!Array.isArray(s.assets)) out.assets = typeof s.savings === "number" ? [{ name: "貯蓄", amount: s.savings, rate: s.returnRate ?? 2 }] : d.assets;
+  if (!Array.isArray(s.assets)) out.assets = typeof s.savings === "number" ? [{ name: "貯蓄", type: "cash", amount: s.savings, rate: s.returnRate ?? 2 }] : d.assets;
   // 旧形式(年間生活費 living)からの移行
   if (!Array.isArray(s.livingItems)) out.livingItems = typeof s.living === "number" ? [{ name: "生活費", monthly: Math.round(s.living / 12 * 10) / 10 }] : d.livingItems;
+  // 資産の種類・積立の項目がない旧データを補う(利回りが低ければ預貯金、そうでなければ投資とみなす)
+  out.assets = out.assets.map(a => ({ monthly: 0, until: 0, ...a, type: a.type || (a.rate < 1 ? "cash" : "invest") }));
   out.debts = Array.isArray(s.debts) ? s.debts : [];
   out.children = Array.isArray(s.children) ? s.children : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
@@ -61,16 +66,67 @@ function readInput(el) {
   else setPath(el.dataset.k, el.value);
 }
 
-function removable(ul, items, text, onRemove) {
-  ul.innerHTML = "";
+// 編集できる一覧。入力中のフォーカスを保つため、追加・削除・並べ替えのときだけ作り直す。
+function renderEditable(box, items, fields, onResort) {
+  box.innerHTML = "";
   items.forEach((item, i) => {
-    const li = document.createElement("li");
-    const span = document.createElement("span"); span.textContent = text(item);
-    const b = document.createElement("button"); b.type = "button"; b.textContent = "削除";
-    b.onclick = () => onRemove(i);
-    li.append(span, b); ul.append(li);
+    const card = document.createElement("div"); card.className = "item-card";
+    const head = document.createElement("div"); head.className = "item-head";
+    const grid = document.createElement("div"); grid.className = "item-grid";
+    fields.forEach((f, fi) => {
+      let el;
+      if (f.type === "select") {
+        el = document.createElement("select");
+        f.options.forEach(([v, l]) => { const o = document.createElement("option"); o.value = v; o.textContent = l; el.append(o); });
+        el.value = item[f.key];
+      } else {
+        el = document.createElement("input");
+        el.type = f.type === "text" ? "text" : "number";
+        if (f.step) el.step = f.step;
+        if (f.min !== undefined) el.min = f.min;
+        if (f.placeholder) el.placeholder = f.placeholder;
+        if (f.type === "number" && !f.signed) el.inputMode = /\./.test(f.step || "") ? "decimal" : "numeric";
+        el.value = f.blank && !item[f.key] ? "" : item[f.key];
+      }
+      el.setAttribute("aria-label", f.label || "名称");
+      el.addEventListener("input", () => {
+        item[f.key] = f.type === "number" ? (parseFloat(el.value) || 0) : el.value;
+        update();
+      });
+      if (f.resort) el.addEventListener("change", onResort);
+      if (fi === 0) { el.placeholder = "名称"; head.append(el); return; }
+      const lab = document.createElement("label"); if (f.full) lab.className = "full"; lab.append(f.label, el); grid.append(lab);
+    });
+    const del = document.createElement("button"); del.type = "button"; del.textContent = "削除"; del.className = "del";
+    del.onclick = () => { items.splice(i, 1); refresh(); };
+    head.append(del); card.append(head, grid); box.append(card);
   });
 }
+const ASSET_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "type", type: "select", label: "種類", options: [["cash", "預貯金"], ["invest", "投資"]] },
+  { key: "amount", type: "number", label: "現在の金額(万円)", step: "10", min: 0 },
+  { key: "rate", type: "number", label: "想定利回り(%/年)", step: "0.1" },
+  { key: "monthly", type: "number", label: "毎月の積立(万円)", step: "0.5", min: 0 },
+  { key: "until", type: "number", label: "積立を続ける年齢", placeholder: "空欄=退職まで", blank: true, min: 0, full: true },
+];
+const DEBT_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "balance", type: "number", label: "残高(万円)", step: "10", min: 0 },
+  { key: "rate", type: "number", label: "金利(%/年)", step: "0.1" },
+  { key: "years", type: "number", label: "残り年数", min: 1 },
+];
+const CHILD_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "age", type: "number", label: "年齢(生まれる前は負の数)", signed: true },
+  { key: "course", type: "select", label: "進路", full: true, options: Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => [k, v.label]) },
+];
+const EVENT_FIELDS = [
+  { key: "name", type: "text" },
+  { key: "age", type: "number", label: "年齢", min: 0, resort: true },
+  { key: "amount", type: "number", label: "金額(万円・収入は負の数)", signed: true },
+];
+function refresh() { renderLiving(); renderLists(); update(); }
 
 // 生活費の項目行。入力中のフォーカスを保つため、追加・削除時だけ作り直す。
 function renderLiving() {
@@ -84,23 +140,17 @@ function renderLiving() {
     amt.value = it.monthly; amt.setAttribute("aria-label", it.name + "の月額(万円)");
     amt.oninput = () => { it.monthly = parseFloat(amt.value) || 0; update(); };
     const del = document.createElement("button"); del.type = "button"; del.textContent = "削除";
-    del.onclick = () => { state.livingItems.splice(i, 1); renderLiving(); update(); };
+    del.onclick = () => { state.livingItems.splice(i, 1); refresh(); };
     row.append(name, amt, del); box.append(row);
   });
 }
 
 function renderLists() {
-  state.events.sort((a, b) => a.age - b.age);
-  removable($("eventList"), state.events,
-    e => `${e.age}歳 ${e.name}: ${e.amount >= 0 ? "-" : "+"}${fmt(Math.abs(e.amount))}万円`,
-    i => { state.events.splice(i, 1); update(); });
-  removable($("assetList"), state.assets,
-    a => `${a.name}: ${fmt(a.amount)}万円(利回り ${a.rate}%)`, i => { state.assets.splice(i, 1); update(); });
-  removable($("debtList"), state.debts,
-    d => `ローン ${d.name}: 残高${fmt(d.balance)}万円 / 金利${d.rate}% / 残り${d.years}年`, i => { state.debts.splice(i, 1); update(); });
-  removable($("childList"), state.children,
-    c => `${c.name}(${c.age < 0 ? -c.age + "年後に誕生" : c.age + "歳"}) ${LifePlan.EDU_COURSES[c.course].label}`,
-    i => { state.children.splice(i, 1); update(); });
+  state.events.sort((x, y) => x.age - y.age);
+  renderEditable($("eventList"), state.events, EVENT_FIELDS, renderLists);
+  renderEditable($("assetList"), state.assets, ASSET_FIELDS);
+  renderEditable($("debtList"), state.debts, DEBT_FIELDS);
+  renderEditable($("childList"), state.children, CHILD_FIELDS);
 }
 
 function renderCards(r) {
@@ -119,6 +169,8 @@ function renderChart(rows) {
   const y = v => m.t + (H - m.t - m.b) * (1 - (v - min) / (max - min));
   const pts = rows.map((r, i) => `${x(i).toFixed(1)},${y(r.balance).toFixed(1)}`);
   const line = "M" + pts.join("L");
+  const hasInvest = rows.some(r => r.investBal > 1);
+  const investLine = hasInvest ? "M" + rows.map((r, i) => `${x(i).toFixed(1)},${y(Math.max(r.investBal, 0)).toFixed(1)}`).join("L") : "";
   const area = `${line}L${x(rows.length - 1).toFixed(1)},${y(0).toFixed(1)}L${x(0).toFixed(1)},${y(0).toFixed(1)}Z`;
   let g = "";
   for (let k = 0; k <= 4; k++) {
@@ -134,8 +186,8 @@ function renderChart(rows) {
     <defs><linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" style="stop-color:var(--accent);stop-opacity:.28"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:0"/></linearGradient></defs>
     ${g}<line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" class="zero-line"/>
-    <path d="${area}" fill="url(#areaG)"/><path d="${line}" class="series"/>${marks}
-    <text x="${m.l}" y="10" class="axis">資産残高(万円)</text></svg>`;
+    <path d="${area}" fill="url(#areaG)"/>${hasInvest ? `<path d="${investLine}" class="series2"/>` : ""}<path d="${line}" class="series"/>${marks}
+    <text x="${m.l}" y="10" class="axis">資産残高(万円)${hasInvest ? "  ―合計  ┄うち投資" : ""}</text></svg>`;
 }
 
 function renderVerdict(r) {
@@ -155,7 +207,7 @@ const COLS = [
   ["退職金", r => r.severance], ["運用益", r => r.invest], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
   ["イベント等", r => r.eventCost], ["支出合計", r => r.outgoTotal],
-  ["年間収支", r => r.net], ["資産残高", r => r.balance], ["イベント名", r => r.eventNames],
+  ["年間収支", r => r.net], ["積立額", r => r.contrib], ["資産残高", r => r.balance], ["預貯金残高", r => r.cashBal], ["投資残高", r => r.investBal], ["イベント名", r => r.eventNames],
 ];
 const num = v => typeof v === "number" ? Math.round(v) : v;
 
@@ -186,9 +238,18 @@ function update() {
   state.living = state.livingItems.reduce((t, it) => t + it.monthly, 0) * 12; // 年間生活費は月額の合計から算出
   $("livingTotal").textContent = `月額合計 ${(state.living / 12).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円 / 年額 ${fmt(state.living)}万円`;
   result = LifePlan.simulate(state);
-  renderVerdict(result); renderLists(); renderCards(result); renderChart(result.rows); renderTable(result.rows);
-  $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円 / 加重平均利回り ${result.returnRate.toFixed(2)}%` +
+  renderVerdict(result); renderCards(result); renderChart(result.rows); renderTable(result.rows);
+  const cashSum = state.assets.filter(x => x.type !== "invest").reduce((t, x) => t + x.amount, 0);
+  $("assetInfo").textContent = `資産合計 ${fmt(result.assetTotal)}万円(預貯金 ${fmt(cashSum)}万円 / 投資 ${fmt(result.assetTotal - cashSum)}万円)` +
+    (result.monthlyContrib ? ` / 毎月の積立 ${result.monthlyContrib.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円` : "") +
     (result.debtTotal ? ` / ローン残高合計 ${fmt(result.debtTotal)}万円(純資産 ${fmt(result.assetTotal - result.debtTotal)}万円)` : "");
+  if (result.monthlyContrib > 0) {
+    const base = LifePlan.simulate({ ...state, assets: state.assets.map(x => ({ ...x, monthly: 0 })) });
+    const diff = result.finalBalance - base.finalBalance;
+    $("effect").innerHTML = `📈 毎月${result.monthlyContrib.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円の積立で、積立をしない場合より<b>最終資産が約${fmt(Math.abs(diff))}万円${diff >= 0 ? "多く" : "少なく"}</b>なる見込みです。`;
+  } else {
+    $("effect").textContent = "💡 毎月の積立を設定すると、資産形成の効果を確認できます(「現在の資産・負債」から設定)。";
+  }
   for (const [key, person, est] of [["Me", state, result.myPension], ["Sp", state.spouse, result.spousePension]]) {
     const auto = person.pensionMode !== "manual";
     $("auto" + key).style.display = auto && person.job === "employee" ? "" : "none";
@@ -219,28 +280,28 @@ $("chCourse").innerHTML = Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => `
 $("childForm").addEventListener("submit", ev => {
   ev.preventDefault();
   state.children.push({ name: $("chName").value.trim(), age: parseInt($("chAge").value, 10), course: $("chCourse").value });
-  ev.target.reset(); update();
+  ev.target.reset(); refresh();
 });
 $("addLiving").onclick = () => {
-  state.livingItems.push({ name: "", monthly: 0 }); renderLiving(); update();
+  state.livingItems.push({ name: "", monthly: 0 }); refresh();
   const names = $("livingRows").querySelectorAll("input:not([type])"); names[names.length - 1].focus();
 };
 $("assetForm").addEventListener("submit", ev => {
   ev.preventDefault();
-  state.assets.push({ name: $("asName").value.trim(), amount: parseFloat($("asAmount").value), rate: parseFloat($("asRate").value) });
-  ev.target.reset(); update();
+  state.assets.push({ name: $("asName").value.trim(), type: $("asType").value, amount: parseFloat($("asAmount").value), rate: parseFloat($("asRate").value), monthly: parseFloat($("asMonthly").value) || 0, until: 0 });
+  ev.target.reset(); refresh();
 });
 $("debtForm").addEventListener("submit", ev => {
   ev.preventDefault();
   state.debts.push({ name: $("dbName").value.trim(), balance: parseFloat($("dbBalance").value), rate: parseFloat($("dbRate").value), years: parseInt($("dbYears").value, 10) });
-  ev.target.reset(); update();
+  ev.target.reset(); refresh();
 });
 $("eventForm").addEventListener("submit", ev => {
   ev.preventDefault();
   state.events.push({ name: $("evName").value.trim(), age: parseInt($("evAge").value, 10), amount: parseFloat($("evAmount").value) });
-  ev.target.reset(); update();
+  ev.target.reset(); refresh();
 });
-$("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); renderLiving(); update(); } };
+$("reset").onclick = () => { if (confirm("入力内容を初期値に戻します。よろしいですか?")) { state = merge(null); writeInputs(); refresh(); } };
 $("exportCsv").onclick = () => download("lifeplan-cashflow.csv", toCsv(result.rows), "text/csv;charset=utf-8");
 $("print").onclick = () => { $("tableBox").open = true; window.print(); };
 if (matchMedia("(max-width:800px)").matches) $("tableBox").open = false; // スマホでは表を折りたたんで開始
@@ -248,7 +309,7 @@ $("exportJson").onclick = () => download("lifeplan-data.json", JSON.stringify(st
 $("importJson").onclick = () => $("importFile").click();
 $("importFile").onchange = async ev => {
   const f = ev.target.files[0]; if (!f) return;
-  try { state = merge(JSON.parse(await f.text())); writeInputs(); renderLiving(); update(); }
+  try { state = merge(JSON.parse(await f.text())); writeInputs(); refresh(); }
   catch (e) { alert("読み込めませんでした。保存したJSONファイルを選んでください。"); }
   ev.target.value = "";
 };
@@ -260,4 +321,4 @@ document.querySelectorAll('input[type="number"]').forEach(el => {
   el.inputMode = /\./.test(el.step) ? "decimal" : "numeric";
 });
 
-writeInputs(); renderLiving(); update();
+writeInputs(); refresh();

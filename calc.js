@@ -58,14 +58,18 @@
     const myPension = pensionOf(p);
     const spousePension = sp ? pensionOf(sp) : 0;
     const rows = [];
-    // 現在の資産(内訳があれば合計、なければ savings)と、その加重平均利回り
-    const assets = Array.isArray(p.assets) ? p.assets : null;
-    const assetTotal = assets ? assets.reduce((s, a) => s + a.amount, 0) : p.savings;
-    const returnRate = assets && assetTotal > 0
-      ? assets.reduce((s, a) => s + a.amount * a.rate, 0) / assetTotal
-      : p.returnRate;
+    // 資産は口座ごとに管理する。毎月の積立は各口座へ、収支の余りは最初の預貯金口座へ入れ、
+    // 足りない分は預貯金 → 投資の順に取り崩す。
+    const buckets = (Array.isArray(p.assets) ? p.assets : [{ amount: p.savings, rate: p.returnRate, type: "cash" }])
+      .map(a => ({ amount: a.amount, rate: a.rate, monthly: a.monthly || 0, until: a.until > 0 ? a.until : p.retireAge, cash: a.type !== "invest" }));
+    if (!buckets.some(x => x.cash)) buckets.push({ amount: 0, rate: 0, monthly: 0, until: 0, cash: true });
+    const sink = buckets.find(x => x.cash);
+    const withdrawOrder = [...buckets.filter(x => x.cash), ...buckets.filter(x => !x.cash)];
+    const sumOf = f => buckets.reduce((t, x) => t + f(x), 0);
+    const assetTotal = sumOf(x => x.amount);
+    const returnRate = assetTotal > 0 ? sumOf(x => x.amount * x.rate) / assetTotal : 0; // 表示用の加重平均
+    const monthlyContrib = sumOf(x => (p.age < x.until ? x.monthly : 0));
     const debts = Array.isArray(p.debts) ? p.debts : [];
-    let balance = assetTotal;
     let depletedAge = null;
 
     for (let age = p.age; age <= p.endAge; age++) {
@@ -112,23 +116,36 @@
 
       const events = p.events.filter(e => e.age === age);
       const eventCost = events.reduce((s, e) => s + e.amount, 0) + housingOnce;
-      const invest = balance > 0 ? balance * (returnRate / 100) : 0;
-      const incomeTotal = salary + spouseSalary + pension + severance + invest;
+      // 運用益(年初の残高に対して)→ 積立(年末に積み増し)→ 収支の余り/不足を口座に反映
+      let invest = 0;
+      for (const x of buckets) if (x.amount > 0) { const i = x.amount * x.rate / 100; x.amount += i; invest += i; }
+      let contrib = 0;
+      for (const x of buckets) if (age < x.until && x.monthly > 0) { x.amount += x.monthly * 12; contrib += x.monthly * 12; }
+      const cashIn = salary + spouseSalary + pension + severance;
       const outgoTotal = living + housing + child + debt + eventCost;
-      balance = balance + incomeTotal - outgoTotal;
+      const incomeTotal = cashIn + invest;
+      const flow = cashIn - outgoTotal - contrib;
+      if (flow >= 0) sink.amount += flow;
+      else {
+        let need = -flow;
+        for (const x of withdrawOrder) { const take = Math.min(Math.max(x.amount, 0), need); x.amount -= take; need -= take; }
+        if (need > 0) sink.amount -= need;
+      }
+      const balance = sumOf(x => x.amount);
       if (balance < 0 && depletedAge === null) depletedAge = age;
+      const cashBal = buckets.filter(x => x.cash).reduce((t, x) => t + x.amount, 0);
 
       const names = events.map(e => e.name);
       if (housingOnce) names.push("住宅購入");
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest,
-        incomeTotal, living, housing, child, debt, eventCost, outgoTotal,
-        net: incomeTotal - outgoTotal, balance, eventNames: names.join("、"),
+        incomeTotal, living, housing, child, debt, eventCost, outgoTotal, contrib,
+        net: incomeTotal - outgoTotal, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
       });
     }
     const atRetire = rows.find(r => r.age === p.retireAge);
     return {
-      rows, depletedAge, assetTotal, returnRate, myPension, spousePension,
+      rows, depletedAge, assetTotal, returnRate, monthlyContrib, myPension, spousePension,
       debtTotal: debts.reduce((s, d) => s + d.balance, 0),
       retireBalance: atRetire ? atRetire.balance : null,
       finalBalance: rows[rows.length - 1].balance,

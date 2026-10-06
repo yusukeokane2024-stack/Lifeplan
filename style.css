@@ -145,3 +145,17 @@ body.wizard-on main,body.wizard-on .hero{display:none}
   #tableBox>summary{display:none}
   :root{--panel:#fff;--line:#bbb;--fg:#000;--field:#fff}
 }
+
+/* ---------- 編集できる一覧(資産・ローン・子ども・イベント) ---------- */
+.item-list{margin-bottom:10px}
+.item-card{background:var(--field);border-radius:14px;padding:10px;margin-bottom:10px}
+.item-head{display:flex;gap:8px;align-items:center}
+.item-head input{font-weight:700;background:var(--panel)}
+.item-head button.del{flex:none;height:36px;padding:0 12px;background:transparent;color:var(--bad);border:1.5px solid var(--line);font-size:.82rem}
+.item-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px}
+.item-grid input,.item-grid select{background:var(--panel)}
+.item-grid .full{grid-column:1/-1}
+.item-form select{grid-column:1/-1}
+h3.sub{font-size:.9rem;margin:16px 0 8px;color:var(--muted)}
+.effect{background:var(--field);border-radius:12px;padding:10px 14px;font-size:.86rem;margin:0 0 12px;line-height:1.6}
+#chart .series2{fill:none;stroke:var(--accent2);stroke-width:2;stroke-dasharray:5 4;opacity:.9}

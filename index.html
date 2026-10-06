@@ -50,6 +50,7 @@
       <h2>いまある貯蓄を教えてください</h2>
       <label class="wz-field">預貯金(普通預金・定期預金など)<span class="wz-input"><input type="number" id="wzCash" min="0" step="10"><em>万円</em></span></label>
       <label class="wz-field">投資(株式・投資信託・iDeCoなど)<span class="wz-input"><input type="number" id="wzInvest" min="0" step="10"><em>万円</em></span><small>だいたいでOKです。ローンや保険は、あとから詳しく入力できます。</small></label>
+      <label class="wz-field">毎月の積立(投資にまわす金額)<span class="wz-input"><input type="number" id="wzMonthly" min="0" step="0.5"><em>万円/月</em></span><small>つみたてNISA・iDeCoなど。していなければ0でOKです。退職年齢まで続ける想定で、結果に「積立の効果」が出ます。</small></label>
     </div>
 
     <div class="wz-step" data-step="3" hidden>
@@ -140,16 +141,19 @@
     </details>
 
     <details open><summary>💰 現在の資産・負債</summary>
-      <p class="hint">資産は内訳ごとに金額と想定利回りを入力します。シミュレーションでは全体を加重平均利回りで運用します。ローンは毎年の返済額として支出に含まれます(資産からは差し引きません)。</p>
-      <ul id="assetList"></ul>
+      <p class="hint">資産は口座ごとに入力します。<b>毎月の積立</b>は、その口座に積み増します(退職年齢まで。変更もできます)。収入から支出と積立を引いた余りは最初の「預貯金」に入り、足りないときは預貯金 → 投資の順に取り崩します。</p>
+      <div id="assetList" class="item-list"></div>
       <form id="assetForm" class="item-form">
-        <input id="asName" placeholder="名称(例: 普通預金)" required>
-        <input id="asAmount" type="number" placeholder="金額(万円)" min="0" required>
-        <input id="asRate" type="number" placeholder="利回り(%)" step="0.1" required>
-        <button>追加</button>
+        <input id="asName" placeholder="追加する口座の名称(例: つみたてNISA)" required>
+        <select id="asType"><option value="invest">投資(株式・投資信託・iDeCoなど)</option><option value="cash">預貯金</option></select>
+        <input id="asAmount" type="number" placeholder="現在の金額(万円)" min="0" required>
+        <input id="asRate" type="number" placeholder="想定利回り(%)" step="0.1" required>
+        <input id="asMonthly" type="number" placeholder="毎月の積立(万円・なしは空欄)" step="0.5" min="0">
+        <button>+ 口座を追加</button>
       </form>
       <p class="hint" id="assetInfo"></p>
-      <ul id="debtList"></ul>
+      <h3 class="sub">既存のローン</h3>
+      <div id="debtList" class="item-list"></div>
       <form id="debtForm" class="item-form">
         <input id="dbName" placeholder="ローン名(例: 奨学金)" required>
         <input id="dbBalance" type="number" placeholder="残高(万円)" min="0" required>
@@ -186,7 +190,7 @@
     <details><summary>👶 子ども</summary>
       <p class="hint">年齢は現在の年齢です。これから生まれる場合は負の数(例: -2 = 2年後に誕生)。学費は目安の平均値で、養育費は下の金額で調整できます。</p>
       <div class="grid"><label>養育費(1人あたり年額・0〜21歳)<input type="number" data-k="childCost" step="5"></label></div>
-      <ul id="childList"></ul>
+      <div id="childList" class="item-list"></div>
       <form id="childForm" class="child-form">
         <input id="chName" placeholder="名前(例: 長男)" required>
         <input id="chAge" type="number" placeholder="年齢" min="-20" max="30" required>
@@ -222,7 +226,7 @@
 
     <details><summary>🎯 ライフイベント</summary>
       <p class="hint">支出は正の数、収入(相続など)は負の数で入力します。</p>
-      <ul id="eventList"></ul>
+      <div id="eventList" class="item-list"></div>
       <form id="eventForm" class="event-form">
         <input id="evName" placeholder="例: 車の購入" required>
         <input id="evAge" type="number" placeholder="年齢" min="0" max="120" required>
@@ -242,6 +246,7 @@
   <section class="panel" id="results">
     <div id="verdict" class="verdict"></div>
     <div class="cards" id="cards"></div>
+    <p class="effect" id="effect"></p>
     <div id="chart" role="img" aria-label="年齢ごとの資産残高の推移グラフ"></div>
     <div class="actions no-print">
       <button type="button" id="exportCsv">キャッシュフロー表をCSV出力</button>
