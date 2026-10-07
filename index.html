@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Life Plan Studio</title>
-<link rel="stylesheet" href="style.css?v=37">
-<link rel="stylesheet" href="report.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="report.css?v=38">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -283,7 +283,8 @@
         <label>就業不能のときの収入の減り方(%)<input type="number" data-k="protection.disabilityLossRate" step="10" min="0" max="100"></label>
         <label>就業不能のときの追加の医療費(月額・万円)<input type="number" data-k="protection.disabilityMedical" step="1" min="0"></label>
         <label>就業不能の期間(年・0=退職まで)<input type="number" data-k="protection.disabilityYears" min="0" max="40"></label>
-        <label>住宅ローンの債務者<select data-k="protection.loanHolder"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
+        <label id="protHolderLabel">住宅ローンの債務者<select data-k="protection.loanHolder"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
+        <p class="hint" id="protHolderPair" hidden>🏠 住宅ローンは<b>ペアローン</b>です。本人・配偶者が、それぞれ自分の借入分の債務者になります(どちらが亡くなっても、その人の分のローンが団信で完済されます)。</p>
       </div>
       <label class="check"><input type="checkbox" data-k="protection.dankin"> 住宅ローンは団信(団体信用生命保険)に加入している(債務者が亡くなるとローンの残りが完済される)</label>
       <label class="check"><input type="checkbox" data-k="protection.disabilityPension"> 就業不能のとき、障害年金(2級の目安)を受け取る前提にする</label>
@@ -413,13 +414,13 @@
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
-<script src="config.js?v=37"></script>
-<script src="calc.js?v=37"></script>
-<script src="app.js?v=37"></script>
-<script src="wizard.js?v=37"></script>
-<script src="profiles.js?v=37"></script>
-<script src="sync.js?v=37"></script>
-<script src="report.js?v=37"></script>
+<script src="config.js?v=38"></script>
+<script src="calc.js?v=38"></script>
+<script src="app.js?v=38"></script>
+<script src="wizard.js?v=38"></script>
+<script src="profiles.js?v=38"></script>
+<script src="sync.js?v=38"></script>
+<script src="report.js?v=38"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>

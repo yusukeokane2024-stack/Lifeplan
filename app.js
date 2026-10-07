@@ -491,6 +491,9 @@ function update() {
   $("ownAuto2").style.display = balMode ? "none" : "";
   $("ownBal2").style.display = balMode ? "" : "none";
   $("ownHolder2").textContent = whoName(state.protection.loanHolder === "spouse" ? "me" : "spouse");
+  const anyPair = pairOn || (h.type === "buy" && h.pair && state.spouse.enabled);
+  $("protHolderLabel").style.display = anyPair ? "none" : "";
+  $("protHolderPair").hidden = !anyPair;
   $("ownHolderLabel").style.display = state.spouse.enabled ? "" : "none";
   $("ownLoan1Title").textContent = pairOn ? `1本目のローン(債務者: ${whoName(state.protection.loanHolder === "spouse" ? "spouse" : "me")})` : "住宅ローン";
   // 将来購入のペアローンは、「将来購入する」を選んだときだけ表示(持ち家のときは、上の「ペアローン」を使う)
