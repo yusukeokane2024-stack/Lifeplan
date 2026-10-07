@@ -264,10 +264,10 @@ function buildReport() {
   // 子ども費用(養育費+学費、物価上昇込み)を子どもごとに集計
   const perChild = S.children.map((c, ci) => ({ name: c.name || "子ども" + (ci + 1), vals: rows.map((_, n) => {
     const infl = Math.pow(1 + S.inflation / 100, n), ca = c.age + n;
-    return ((ca >= 0 && ca <= 21 ? S.childCost : 0) + LifePlan.eduCost(c.course, ca)) * infl;
+    return ((ca >= 0 && ca <= 21 ? LifePlan.childCostOf(S) : 0) + LifePlan.eduCost(c.course, ca)) * infl;
   }) }));
   if (S.children.length) cards.push(rpCard("子どもの費用", rpTable(["子ども", "進路", "総額(目安)"], S.children.map((c, i) => [esc(c.name || "子ども"), esc(LifePlan.EDU_COURSES[c.course]?.label || ""), rpMoney(perChild[i].vals.reduce((t, v) => t + v, 0))]), { align: ["", "", "n"] }) +
-    `<p class="rp-note">養育費(1人あたり年${S.childCost}万円・0〜21歳)と、進路に応じた学費の目安の合計です。</p>`));
+    `<p class="rp-note">養育費(1人あたり年${LifePlan.childCostOf(S)}万円・0〜21歳${S.childFoodInLiving ? "。食費は生活費に含む" : ""})と、進路に応じた学費の目安の合計です。${S.childLeaveCut > 0 ? `子どもが全員独立したあとは、生活費を${S.childLeaveCut}%減らして計算しています。` : ""}</p>`));
   if (S.events.length) cards.push(rpCard("ライフイベント", rpTable(["年齢", "内容", "金額"], S.events.map(e => [`${e.age}歳`, esc(e.name), e.amount >= 0 ? `-${rpMoney(e.amount)}` : `+${rpMoney(-e.amount)}`]), { align: ["c", "", "n"] })));
 
   const inputPages = [];

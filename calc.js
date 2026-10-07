@@ -19,6 +19,9 @@
     return 0;
   }
 
+  // 養育費(1人あたり年額)。食費を生活費に入れている場合は、その分を除く
+  function childCostOf(p) { return Math.max(0, p.childCost - (p.childFoodInLiving ? (p.childFood ?? 30) : 0)); }
+
   // 元利均等返済の年間返済額
   function annualPayment(loan, ratePct, years) {
     if (loan <= 0 || years <= 0) return 0;
@@ -236,7 +239,10 @@
       let pension = myPen + spPen;
       let severance = mySev + spSev;
 
-      const living = (working ? p.living : p.living * (p.retireLivingRatio / 100)) * infl * livingMult;
+      // 子どもが全員独立(22歳以上)したら、生活費が減る
+      const kidsGone = p.children.length > 0 && p.children.every(c => c.age + n > 21);
+      const kidsMult = kidsGone ? 1 - (p.childLeaveCut || 0) / 100 : 1;
+      const living = (working ? p.living : p.living * (p.retireLivingRatio / 100)) * infl * livingMult * kidsMult;
 
       // 住み替え(この年齢の分を先に反映)
       let moveCash = 0; const moveNames = [];
@@ -271,7 +277,7 @@
       let child = 0;
       for (const c of p.children) {
         const ca = c.age + n;
-        if (ca >= 0 && ca <= 21) child += p.childCost * infl;
+        if (ca >= 0 && ca <= 21) child += childCostOf(p) * infl;
         child += eduCost(c.course, ca) * infl;
       }
 
@@ -345,7 +351,7 @@
     return { valid: true, base, scn, shortfall, info: scn.scenarioInfo };
   }
 
-  const api = { simulate, riskSummary, pensionParts, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost };
+  const api = { simulate, riskSummary, pensionParts, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost, childCostOf };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);

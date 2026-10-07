@@ -15,7 +15,7 @@ const DEFAULTS = {
   debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, severance: 800,
     pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
-  childCost: 80,
+  childCost: 80, childFood: 30, childFoodInLiving: false, childLeaveCut: 0,
   children: [],
   housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
