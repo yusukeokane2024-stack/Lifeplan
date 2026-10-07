@@ -430,7 +430,6 @@ function renderView() {
     b.disabled = v !== "normal" && !state.spouse.enabled;
     b.title = b.disabled ? "配偶者を含める設定にすると切り替えられます" : "";
   });
-  $("viewAge").hidden = viewMode !== "risk";
   $("riskBox").hidden = viewMode !== "risk"; // 通常のときは、万が一の情報を出さない
   const bn = $("scenarioBanner");
   if (viewMode !== "risk") { bn.hidden = true; return; }
