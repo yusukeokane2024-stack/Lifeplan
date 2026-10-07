@@ -328,7 +328,7 @@ function buildReport() {
   }
 
   // グラフ
-  const g1 = rpPage("グラフ 1");
+  const g1 = rpPage(R.assetTotal > 0 || rows.some(r => r.investBal > 1) ? "グラフ 1:キャッシュフローと投資運用" : "グラフ 1:キャッシュフロー");
   g1.insertAdjacentHTML("beforeend", `<div class="rp-chart"><h3>キャッシュフローグラフ</h3><p class="sub">支出の内訳(積み上げ)と、現金で入る収入の合計(線)。単位:万円</p>${chartCashflow(rows, 1040, 270)}${rpLegend([...OUT_KEYS.map(([, l], i) => [RP.cats[i], l]), [RP.ink, "収入合計", true]])}</div>` +
     (R.assetTotal > 0 || rows.some(r => r.investBal > 1) ? `<div class="rp-chart"><h3>投資運用グラフ</h3><p class="sub">投資残高の内訳(元本=現在の投資+積立の累計)。単位:万円</p>${chartInvest(rows, 1040, 230, initInvest)}${rpLegend([[RP.cats[0], "元本"], [RP.cats[1], "運用収益"]])}</div>` : ""));
   add(g1);
@@ -337,7 +337,7 @@ function buildReport() {
     const first = Math.min(...perChild.map(c => Math.max(0, c.vals.findIndex(v => v > 0))));
     const sl = rows.slice(first, last + 1), pc = perChild.slice(0, 8).map(c => ({ name: c.name, vals: c.vals.slice(first, last + 1) }));
     const total = perChild.reduce((t, c) => t + c.vals.reduce((a, v) => a + v, 0), 0);
-    const g2 = rpPage("グラフ 2");
+    const g2 = rpPage("グラフ 2:子ども費用の推移");
     g2.insertAdjacentHTML("beforeend", `<div class="rp-chart"><h3>子ども費用の推移(養育費+学費)</h3><p class="sub">総額 <b>${rpMoney(total)}</b>(内訳: ${perChild.map(c => `${esc(c.name)} ${rpMoney(c.vals.reduce((a, v) => a + v, 0))}`).join(" / ")})</p>${chartChildren(sl, 1040, 470, pc)}${rpLegend(pc.map((c, i) => [RP.cats[i], esc(c.name)]))}</div>`);
     add(g2);
   }
