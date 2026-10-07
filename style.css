@@ -69,6 +69,7 @@ details[open]>summary::after{transform:rotate(-135deg)}
 details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:14px}
 details>*:last-child{margin-bottom:16px}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:14px}
+.grid>label{justify-content:space-between}
 label{display:flex;flex-direction:column;font-size:.78rem;gap:5px;min-width:0;color:var(--muted);font-weight:600}
 label.check{flex-direction:row;align-items:center;gap:8px;font-size:.92rem;margin-bottom:10px;color:var(--fg)}
 input,select{width:100%;min-width:0;height:46px;padding:0 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--field);color:var(--fg);font:inherit;font-size:1rem;font-weight:500;transition:border-color .15s,box-shadow .15s}
