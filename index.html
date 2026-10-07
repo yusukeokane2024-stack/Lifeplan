@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Life Plan Studio</title>
-<link rel="stylesheet" href="style.css?v=38">
-<link rel="stylesheet" href="report.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
+<link rel="stylesheet" href="report.css?v=39">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -294,6 +294,7 @@
       <div class="grid">
         <label style="grid-column:1/-1">住まい<select data-k="housing.type"><option value="rent">賃貸(住み続ける)</option><option value="buy">将来購入する</option><option value="own">持ち家(購入済み)</option></select></label>
         <label id="rentLabel">家賃(年額)<input type="number" data-k="housing.rent" step="10"></label>
+        <label id="parkingLabel">駐車場代(月額)<input type="number" data-k="housing.parking" step="0.5" min="0" placeholder="0"></label>
       </div>
       <div id="ownFields">
         <div class="grid">
@@ -345,6 +346,7 @@
         <label>ローン金利 (%/年)<input type="number" data-k="housing.rate" step="0.1"></label>
         <label>返済年数<input type="number" data-k="housing.years" min="1" max="50"></label>
         <label>管理・修繕・固定資産税(年額)<input type="number" data-k="housing.upkeep" step="5"></label>
+        <label>購入後の駐車場代(月額)<input type="number" data-k="housing.buyParking" step="0.5" min="0" placeholder="0"></label>
       </div>
       <label class="check" id="buyPairCheck"><input type="checkbox" data-k="housing.pair"> ペアローンで借りる(夫婦で借入額を分ける)</label>
       <div class="grid" id="buyPair"><label>1本目(債務者は「現在の保障」の設定)の借入割合(%)<input type="number" data-k="housing.pairRatio" step="5" min="0" max="100"></label></div>
@@ -414,13 +416,13 @@
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
-<script src="config.js?v=38"></script>
-<script src="calc.js?v=38"></script>
-<script src="app.js?v=38"></script>
-<script src="wizard.js?v=38"></script>
-<script src="profiles.js?v=38"></script>
-<script src="sync.js?v=38"></script>
-<script src="report.js?v=38"></script>
+<script src="config.js?v=39"></script>
+<script src="calc.js?v=39"></script>
+<script src="app.js?v=39"></script>
+<script src="wizard.js?v=39"></script>
+<script src="profiles.js?v=39"></script>
+<script src="sync.js?v=39"></script>
+<script src="report.js?v=39"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>

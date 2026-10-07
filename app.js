@@ -17,7 +17,7 @@ const DEFAULTS = {
     pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
   childCost: 80, childFood: 30, childFoodInLiving: false, childLeaveCut: 0,
   children: [],
-  housing: { type: "rent", rent: 100, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
+  housing: { type: "rent", rent: 100, parking: 0, buyParking: 0, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
     ownLoan: 2500, ownRate: 1.2, ownYears: 25, ownMgmt: 2, ownTax: 12, ownRepair: 20,
     ownPair: false, ownBorrow2: 2000, ownBorrowYear2: new Date().getFullYear() - 5, ownTerm2: 35, ownRate2: 1.2, ownLoan2: 1500, ownYears2: 25,
@@ -222,6 +222,7 @@ const MOVE_FIELDS = [
   { key: "rate", type: "number", label: "ローン金利(%/年)", step: "0.1", show: m => m.type === "buy" },
   { key: "years", type: "number", label: "返済年数", min: 1, show: m => m.type === "buy" },
   { key: "upkeep", type: "number", label: "管理・修繕・税(年額)", step: "5", min: 0, show: m => m.type === "buy" },
+  { key: "parking", type: "number", label: "新居の駐車場代(月額)", step: "0.5", min: 0, full: true },
   { key: "salePrice", type: "number", label: "旧居の売却価格(いま持ち家の場合)", step: "100", min: 0, full: true },
   { key: "sellCost", type: "number", label: "売却にかかる費用(仲介手数料など)", step: "10", min: 0, full: true },
 ];
@@ -561,7 +562,7 @@ $("addIncome").onclick = () => {
   refresh();
 };
 $("addMove").onclick = () => {
-  state.moves.push({ name: "住み替え", age: state.age + 10, type: "buy", loanKind: "single", pairRatio: 50, rent: 120, price: 4000, down: 800, closing: 200, rate: 1.5, years: 30, upkeep: 30, salePrice: 3000, sellCost: 150 });
+  state.moves.push({ name: "住み替え", age: state.age + 10, type: "buy", loanKind: "single", pairRatio: 50, rent: 120, parking: state.housing.parking || 0, price: 4000, down: 800, closing: 200, rate: 1.5, years: 30, upkeep: 30, salePrice: 3000, sellCost: 150 });
   refresh();
 };
 $("assetForm").addEventListener("submit", ev => {

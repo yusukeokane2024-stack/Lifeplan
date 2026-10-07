@@ -237,7 +237,7 @@ function buildReport() {
   living.push({ sum: true, cells: ["月額合計", `${Math.round(S.livingItems.reduce((t, i) => t + i.monthly, 0) * 10) / 10}万円(年額${rpMoney(S.living)})`] });
   cards.push(rpCard("生活費(月額)", rpTable(["項目", "月額"], living, { align: ["", "n"] }) + `<p class="rp-note">退職後は生活費を${S.retireLivingRatio}%として計算しています。</p>`));
   const h = S.housing;
-  const house = h.type === "rent" ? [["住まい", "賃貸(住み続ける)"], ["家賃", `${rpMoney(h.rent)}/年`]]
+  const house = h.type === "rent" ? [["住まい", "賃貸(住み続ける)"], ["家賃", `${rpMoney(h.rent)}/年`], ...(h.parking ? [["駐車場代", `${h.parking}万円/月`]] : [])]
     : h.type === "own" ? (() => {
         const auto = h.ownMode !== "balance", y = new Date().getFullYear(), pairOn = !!h.ownPair && S.spouse.enabled;
         const mk = (b, by, t, r, bal, yrs) => LifePlan.loanStatus({ mode: auto ? "auto" : "balance", borrow: b, borrowYear: by, term: t, rate: r, balance: bal, years: yrs }, y);
@@ -250,15 +250,15 @@ function buildReport() {
           if (auto) rows.push([`住宅ローン${tag ? " " + tag : ""}(借入時)`, i === 0 ? `${rpMoney(h.ownBorrow)}(${h.ownBorrowYear}年・${h.ownRate}%・${h.ownTerm}年返済)` : `${rpMoney(h.ownBorrow2)}(${h.ownBorrowYear2}年・${h.ownRate2}%・${h.ownTerm2}年返済)`]);
           rows.push([`ローン残高${tag ? " " + tag : ""}${auto ? "(自動計算)" : ""}`, st.remaining > 0 ? `約${rpMoney(st.balance)} / 年間返済 ${rpMoney(st.payment)}(あと${st.remaining}年)` : "完済済み"]);
         });
-        rows.push(["管理費・修繕積立金", `${h.ownMgmt}万円/月`], ["固定資産税等", `${rpMoney(h.ownTax)}/年`], ["修繕・メンテナンス費", `${rpMoney(h.ownRepair)}/年`]);
+        rows.push(...(h.parking ? [["駐車場代", `${h.parking}万円/月`]] : []), ["管理費・修繕積立金", `${h.ownMgmt}万円/月`], ["固定資産税等", `${rpMoney(h.ownTax)}/年`], ["修繕・メンテナンス費", `${rpMoney(h.ownRepair)}/年`]);
         return rows;
       })()
     : [["住まい", `賃貸 → ${h.buyAge}歳で購入`], ["賃貸中の家賃", `${rpMoney(h.rent)}/年`], ["物件価格 / 頭金", `${rpMoney(h.price)} / ${rpMoney(h.down)}`], ["諸費用", rpMoney(h.closing)],
-        ["借入額", rpMoney(h.price - h.down) + (h.pair && S.spouse.enabled ? `(ペアローン: 1本目 ${h.pairRatio ?? 50}% / 2本目 ${100 - (h.pairRatio ?? 50)}%)` : "")], ["金利 / 返済年数", `${h.rate}% / ${h.years}年`], ["管理・修繕・税", `${rpMoney(h.upkeep)}/年`]];
+        ["借入額", rpMoney(h.price - h.down) + (h.pair && S.spouse.enabled ? `(ペアローン: 1本目 ${h.pairRatio ?? 50}% / 2本目 ${100 - (h.pairRatio ?? 50)}%)` : "")], ["金利 / 返済年数", `${h.rate}% / ${h.years}年`], ["管理・修繕・税", `${rpMoney(h.upkeep)}/年`], ...(h.parking ? [["賃貸中の駐車場代", `${h.parking}万円/月`]] : []), ...(h.buyParking ? [["購入後の駐車場代", `${h.buyParking}万円/月`]] : [])];
   for (const m of [...S.moves].sort((a, b) => a.age - b.age)) {
     house.push([`${m.age}歳 ${esc(m.name || "住み替え")}`, (m.type === "buy"
       ? `購入 ${rpMoney(m.price)}(頭金${rpMoney(m.down)}・${m.rate}%・${m.years}年${m.loanKind === "pair" && S.spouse.enabled ? "・ペアローン" : ""})`
-      : `賃貸へ(家賃${rpMoney(m.rent)}/年)`) + (m.salePrice ? ` / 旧居を${rpMoney(m.salePrice)}で売却` : "")]);
+      : `賃貸へ(家賃${rpMoney(m.rent)}/年)`) + (m.parking ? ` / 駐車場${m.parking}万円/月` : "") + (m.salePrice ? ` / 旧居を${rpMoney(m.salePrice)}で売却` : "")]);
   }
   cards.push(rpCard("住居", rpTable(null, house, { kv: true })));
   // 子ども費用(養育費+学費、物価上昇込み)を子どもごとに集計

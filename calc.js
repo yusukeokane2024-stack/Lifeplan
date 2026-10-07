@@ -103,12 +103,12 @@
     // ローンは配列で持つ(ペアローンは2本)。holder は債務者(団信は、亡くなった債務者のローンだけを完済する)
     const holder1 = prot.loanHolder === "spouse" ? "spouse" : "me", holder2 = holder1 === "me" ? "spouse" : "me";
     const mkLoan = (st, rate, holder) => ({ principal: st.principal, rate, years: st.term, startAge: p.age - st.k, holder });
-    let cur = { kind: "rent", rent: h.rent };
+    let cur = { kind: "rent", rent: h.rent, parking: h.parking || 0 };
     if (h.type === "own") {
       const mode = h.ownMode === "auto" ? "auto" : "balance";
       const st = loanStatus({ mode, borrow: h.ownBorrow, borrowYear: h.ownBorrowYear, term: h.ownTerm, rate: h.ownRate, balance: h.ownLoan, years: h.ownYears }, nowYear);
       // 返済開始を「いまから k 年前」に置くことで、返済済みの年数がそのまま売却時の残債計算に使える
-      cur = { kind: "own", loans: [mkLoan(st, h.ownRate, holder1)], upkeep: h.ownMgmt * 12 + h.ownTax + h.ownRepair };
+      cur = { kind: "own", loans: [mkLoan(st, h.ownRate, holder1)], upkeep: h.ownMgmt * 12 + h.ownTax + h.ownRepair, parking: h.parking || 0 };
       if (h.ownPair && sp) {
         const st2 = loanStatus({ mode, borrow: h.ownBorrow2, borrowYear: h.ownBorrowYear2, term: h.ownTerm2, rate: h.ownRate2, balance: h.ownLoan2, years: h.ownYears2 }, nowYear);
         cur.loans.push(mkLoan(st2, h.ownRate2, holder2));
@@ -116,7 +116,7 @@
     }
     // 住み替え: 「将来購入する」(従来の設定)も、最初の住み替えとして扱う
     const moves = [];
-    if (h.type === "buy") moves.push({ age: h.buyAge, name: "住宅購入", type: "buy", price: h.price, down: h.down, closing: h.closing, rate: h.rate, years: h.years, upkeep: h.upkeep, salePrice: 0, sellCost: 0, loanKind: h.pair ? "pair" : "single", pairRatio: h.pairRatio });
+    if (h.type === "buy") moves.push({ age: h.buyAge, name: "住宅購入", type: "buy", price: h.price, down: h.down, closing: h.closing, rate: h.rate, years: h.years, upkeep: h.upkeep, salePrice: 0, sellCost: 0, parking: h.buyParking || 0, loanKind: h.pair ? "pair" : "single", pairRatio: h.pairRatio });
     for (const m of Array.isArray(p.moves) ? p.moves : []) moves.push({ name: "住み替え", ...m });
     moves.sort((a, b) => a.age - b.age); // 同じ年齢なら入力順(sort は安定)
     const myPension = pensionOf(p);                         // 額面
@@ -258,8 +258,8 @@
           const share = pair ? Math.max(0, Math.min(100, m.pairRatio == null ? 50 : m.pairRatio)) / 100 : 1;
           const loans = [{ principal: total * share, rate: m.rate, years: m.years, startAge: age, holder: holder1 }];
           if (pair) loans.push({ principal: total - total * share, rate: m.rate, years: m.years, startAge: age, holder: holder2 });
-          cur = { kind: "own", loans, upkeep: m.upkeep };
-        } else cur = { kind: "rent", rent: m.rent };
+          cur = { kind: "own", loans, upkeep: m.upkeep, parking: m.parking || 0 };
+        } else cur = { kind: "rent", rent: m.rent, parking: m.parking || 0 };
         moveNames.push(m.name || "住み替え");
       }
       if (dankinNow && cur.kind === "own") { // 団信: 債務者が亡くなると、その人のローンの残りが保険金で完済される(ペアローンは、亡くなった人の分だけ)
@@ -269,10 +269,10 @@
       }
       // 住居費: 賃貸=家賃 / 持ち家=ローン返済(返済期間中)+維持費(物価に連動)
       let housing = 0;
-      if (cur.kind === "rent") housing = cur.rent;
+      if (cur.kind === "rent") housing = cur.rent + (cur.parking || 0) * 12;
       else {
         for (const l of cur.loans) if (age - l.startAge < l.years) housing += annualPayment(l.principal, l.rate, l.years);
-        housing += cur.upkeep * infl;
+        housing += (cur.upkeep + (cur.parking || 0) * 12) * infl;
       }
       let child = 0;
       for (const c of p.children) {
