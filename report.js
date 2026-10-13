@@ -267,7 +267,7 @@ function buildReport() {
     return ((ca >= 0 && ca <= 21 ? LifePlan.childCostOf(S) : 0) + LifePlan.eduCost(c.course, ca)) * infl;
   }) }));
   if (S.children.length) cards.push(rpCard("子どもの費用", rpTable(["子ども", "進路", "総額(目安)"], S.children.map((c, i) => [esc(c.name || "子ども"), esc(LifePlan.EDU_COURSES[c.course]?.label || ""), rpMoney(perChild[i].vals.reduce((t, v) => t + v, 0))]), { align: ["", "", "n"] }) +
-    `<p class="rp-note">養育費(1人あたり年${LifePlan.childCostOf(S)}万円・0〜21歳${S.childFoodInLiving ? "。食費は生活費に含む" : ""})と、進路に応じた学費の目安の合計です。${S.childLeaveCut > 0 ? `子どもが全員独立したあとは、生活費を${S.childLeaveCut}%減らして計算しています。` : ""}</p>`));
+    `<p class="rp-note">養育費(1人あたり年${LifePlan.childCostOf(S)}万円・0〜21歳${S.childFoodInLiving ? "。食費は生活費に含む" : ""})と、進路に応じた学費の目安の合計です。${S.childLeaveCut > 0 ? `子どもが全員独立したあとは、生活費を${S.childLeaveCut}%減らして計算しています。` : ""}${S.childAllowance ? "児童手当(0〜2歳 月1.5万円・3歳〜高校生年代 月1万円・第3子以降 月3万円の目安)を収入に含めています。" : ""}</p>`));
   if (S.events.length) cards.push(rpCard("ライフイベント", rpTable(["年齢", "内容", "金額"], S.events.map(e => [`${e.age}歳`, esc(e.name), e.amount >= 0 ? `-${rpMoney(e.amount)}` : `+${rpMoney(-e.amount)}`]), { align: ["c", "", "n"] })));
 
   const inputPages = [];
@@ -298,7 +298,7 @@ function buildReport() {
     ...S.children.map((c, i) => ["l", esc(c.name || "子ども" + (i + 1)), (r, n) => c.age + n]),
     ["sec inc", "収入"],
     ["s", "給与(本人)", r => r.salary], ...(sp ? [["s", "給与(配偶者)", r => r.spouseSalary]] : []),
-    ["s", "年金(手取り)", r => r.pension], ["s", "退職金", r => r.severance], ["tot", "収入合計", r => r.incomeTotal],
+    ["s", "年金(手取り)", r => r.pension], ...(rows.some(r => r.allowance > 0.5) ? [["s", "児童手当", r => r.allowance]] : []), ["s", "退職金", r => r.severance], ["tot", "収入合計", r => r.incomeTotal],
     ["sec out", "支出"],
     ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
     ["s", "イベント・その他", r => r.eventCost],

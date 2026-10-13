@@ -281,6 +281,13 @@
         child += eduCost(c.course, ca) * infl;
       }
 
+      // 児童手当(目安): 0〜2歳 月1.5万円、3歳〜高校生年代 月1万円、第3子以降(22歳年度末までの子で数える)は3歳〜高校生年代で月3万円
+      let allowance = 0;
+      if (p.childAllowance) {
+        const ages = p.children.map(c => c.age + n).filter(a => a >= 0 && a <= 21).sort((a, b) => b - a);
+        ages.forEach((a, i) => { if (a <= 2) allowance += 18; else if (a <= 17) allowance += i >= 2 ? 36 : 12; });
+      }
+
       let debt = 0;
       for (const st of debtStates) if (n < st.remaining) debt += st.payment;
       // 車: 購入時の支出(一括・頭金)、維持費、ローンの返済
@@ -302,7 +309,7 @@
       for (const x of buckets) if (x.amount > 0) { const i = x.amount * x.rate / 100; x.amount += i; invest += i; }
       let contrib = 0;
       for (const x of buckets) if (age < x.until && x.monthly > 0) { x.amount += x.monthly * 12; contrib += x.monthly * 12; }
-      const cashIn = salary + spouseSalary + pension + severance + benefit + insIncome;
+      const cashIn = salary + spouseSalary + pension + severance + benefit + insIncome + allowance;
       const outgoTotal = living + housing + child + debt + eventCost + carCost;
       const incomeTotal = cashIn; // 現金で入る収入。運用益は資産に積み上がるだけなので、収入には含めない
       const flow = cashIn - outgoTotal - contrib;
@@ -321,7 +328,7 @@
       for (const c of changes) if ((c.who === "me" ? age : spouseAge) === c.from) names.push(c.name || "収入の変化");
       names.push(...moveNames, ...riskNames, ...carNames);
       rows.push({
-        age, spouseAge, salary, spouseSalary, pension, severance, invest, benefit, insIncome,
+        age, spouseAge, salary, spouseSalary, pension, severance, invest, benefit, insIncome, allowance,
         incomeTotal, living, housing, child, debt, eventCost, car: carCost, outgoTotal, contrib,
         net: incomeTotal - outgoTotal, assetChange, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
       });

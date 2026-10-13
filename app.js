@@ -15,7 +15,7 @@ const DEFAULTS = {
   debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, severance: 800,
     pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
-  childCost: 80, childFood: 30, childFoodInLiving: false, childLeaveCut: 0,
+  childCost: 80, childFood: 30, childFoodInLiving: false, childAllowance: false, childLeaveCut: 0,
   children: [],
   housing: { type: "rent", rent: 100, parking: 0, buyParking: 0, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
     ownMode: "auto", ownBorrow: 3000, ownBorrowYear: new Date().getFullYear() - 5, ownTerm: 35,
@@ -314,7 +314,7 @@ function renderVerdict(r) {
 
 const COLS = [
   ["年齢", r => r.age], ["配偶者年齢", r => r.spouseAge ?? ""],
-  ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension], ["遺族・障害年金", r => r.benefit, true], ["保険の給付", r => r.insIncome, true],
+  ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension], ["遺族・障害年金", r => r.benefit, true], ["保険の給付", r => r.insIncome, true], ["児童手当", r => r.allowance, true],
   ["退職金", r => r.severance], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
   ["イベント等", r => r.eventCost], ["車の費用", r => r.car, true], ["支出合計", r => r.outgoTotal],
