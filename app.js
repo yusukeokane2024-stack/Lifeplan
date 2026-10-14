@@ -464,7 +464,8 @@ function update() {
   }
   for (const [key, person, est] of [["Me", state, result.myPension], ["Sp", state.spouse, result.spousePension]]) {
     const auto = person.pensionMode !== "manual";
-    $("auto" + key).style.display = auto && person.job === "employee" ? "" : "none";
+    $("auto" + key).style.display = auto ? "" : "none"; // 働き方の選択は、常に表示する(会社員以外を選んでも戻せるように)
+    $("auto" + key).querySelectorAll(".emp-only").forEach(el => { el.style.display = person.job === "employee" ? "" : "none"; });
     $("manual" + key).style.display = auto ? "none" : "";
     $("pensionInfo" + key).textContent = auto
       ? `見積額: 年${est.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円(月${(est / 12).toFixed(1)}万円)。` +

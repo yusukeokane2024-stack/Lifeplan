@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Life Plan Studio</title>
-<link rel="stylesheet" href="style.css?v=41">
-<link rel="stylesheet" href="report.css?v=41">
+<link rel="stylesheet" href="style.css?v=42">
+<link rel="stylesheet" href="report.css?v=42">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -171,9 +171,9 @@
           <label>年金の入力方法<select data-k="pensionMode"><option value="auto">自動で見積もる</option><option value="manual">金額を自分で入力</option></select></label>
           <div class="grid" id="autoMe">
             <label>働き方<select data-k="job"><option value="employee">会社員・公務員</option><option value="self">自営業・フリーランス</option><option value="none">専業主婦(夫)など</option></select></label>
-            <label>厚生年金に入った年齢<input type="number" data-k="startAge" min="15" max="70"></label>
-            <label>会社員をやめた年齢(途中でフリーランス等になった場合。空欄=退職まで)<input type="number" data-k="kouseiEnd" min="0" max="70" placeholder="空欄"></label>
-            <label>生涯の平均年収(額面・ボーナス込)<input type="number" data-k="avgGross" step="10"></label>
+            <label class="emp-only">厚生年金に入った年齢<input type="number" data-k="startAge" min="15" max="70"></label>
+            <label class="emp-only">会社員をやめた年齢(途中でフリーランス等になった場合。空欄=退職まで)<input type="number" data-k="kouseiEnd" min="0" max="70" placeholder="空欄"></label>
+            <label class="emp-only">生涯の平均年収(額面・ボーナス込)<input type="number" data-k="avgGross" step="10"></label>
           </div>
           <div class="grid" id="manualMe"><label>年金額 (年間)<input type="number" data-k="pension" step="10"></label></div>
           <p class="hint" id="pensionInfoMe"></p>
@@ -246,9 +246,9 @@
           <label>年金の入力方法<select data-k="spouse.pensionMode"><option value="auto">自動で見積もる</option><option value="manual">金額を自分で入力</option></select></label>
           <div class="grid" id="autoSp">
             <label>働き方<select data-k="spouse.job"><option value="employee">会社員・公務員</option><option value="self">自営業・フリーランス</option><option value="none">専業主婦(夫)など</option></select></label>
-            <label>厚生年金に入った年齢<input type="number" data-k="spouse.startAge" min="15" max="70"></label>
-            <label>会社員をやめた年齢(途中でフリーランス等になった場合。空欄=退職まで)<input type="number" data-k="spouse.kouseiEnd" min="0" max="70" placeholder="空欄"></label>
-            <label>生涯の平均年収(額面・ボーナス込)<input type="number" data-k="spouse.avgGross" step="10"></label>
+            <label class="emp-only">厚生年金に入った年齢<input type="number" data-k="spouse.startAge" min="15" max="70"></label>
+            <label class="emp-only">会社員をやめた年齢(途中でフリーランス等になった場合。空欄=退職まで)<input type="number" data-k="spouse.kouseiEnd" min="0" max="70" placeholder="空欄"></label>
+            <label class="emp-only">生涯の平均年収(額面・ボーナス込)<input type="number" data-k="spouse.avgGross" step="10"></label>
           </div>
           <div class="grid" id="manualSp"><label>年金額 (年間)<input type="number" data-k="spouse.pension" step="10"></label></div>
           <p class="hint" id="pensionInfoSp"></p>
@@ -417,13 +417,13 @@
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
-<script src="config.js?v=41"></script>
-<script src="calc.js?v=41"></script>
-<script src="app.js?v=41"></script>
-<script src="wizard.js?v=41"></script>
-<script src="profiles.js?v=41"></script>
-<script src="sync.js?v=41"></script>
-<script src="report.js?v=41"></script>
+<script src="config.js?v=42"></script>
+<script src="calc.js?v=42"></script>
+<script src="app.js?v=42"></script>
+<script src="wizard.js?v=42"></script>
+<script src="profiles.js?v=42"></script>
+<script src="sync.js?v=42"></script>
+<script src="report.js?v=42"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>
