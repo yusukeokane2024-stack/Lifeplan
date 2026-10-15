@@ -178,6 +178,10 @@ const CHILD_FIELDS = [
   { key: "name", type: "text" },
   { key: "age", type: "number", label: "年齢(生まれる前は負の数)", signed: true },
   { key: "course", type: "select", label: "進路", full: true, options: Object.entries(LifePlan.EDU_COURSES).map(([k, v]) => [k, v.label]) },
+  { key: "aloneFrom", type: "number", label: "一人暮らしを始める年齢", placeholder: "空欄=しない", blank: true, min: 0 },
+  { key: "aloneUntil", type: "number", label: "終わる年齢", placeholder: "空欄=21歳まで", blank: true, min: 0 },
+  { key: "aloneMonthly", type: "number", label: "仕送り・家賃など(月額・万円)", placeholder: "例: 8", blank: true, step: "0.5", min: 0 },
+  { key: "aloneInit", type: "number", label: "始めるときの費用(敷金・家具家電など)", placeholder: "例: 30", blank: true, step: "5", min: 0 },
 ];
 const CAR_FIELDS = [
   { key: "name", type: "text" },

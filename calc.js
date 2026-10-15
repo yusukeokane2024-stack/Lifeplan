@@ -22,6 +22,16 @@
   // 養育費(1人あたり年額)。食費を生活費に入れている場合は、その分を除く
   function childCostOf(p) { return Math.max(0, p.childCost - (p.childFoodInLiving ? (p.childFood ?? 30) : 0)); }
 
+  // 子ども1人の、n年後の費用(養育費+学費+一人暮らしの仕送り等。物価上昇込み)。
+  // 一人暮らし中は、基本の養育費のかわりに仕送り・家賃などの月額を計上する。
+  function childYearCost(p, c, n) {
+    const infl = Math.pow(1 + p.inflation / 100, n), ca = c.age + n;
+    const alone = c.aloneFrom > 0 && ca >= c.aloneFrom && ca <= (c.aloneUntil || 21);
+    let v = alone ? (c.aloneMonthly || 0) * 12 : (ca >= 0 && ca <= 21 ? childCostOf(p) : 0);
+    if (c.aloneFrom > 0 && ca === c.aloneFrom) v += c.aloneInit || 0;
+    return (v + eduCost(c.course, ca)) * infl;
+  }
+
   // 元利均等返済の年間返済額
   function annualPayment(loan, ratePct, years) {
     if (loan <= 0 || years <= 0) return 0;
@@ -276,9 +286,7 @@
       }
       let child = 0;
       for (const c of p.children) {
-        const ca = c.age + n;
-        if (ca >= 0 && ca <= 21) child += childCostOf(p) * infl;
-        child += eduCost(c.course, ca) * infl;
+        child += childYearCost(p, c, n);
       }
 
       // 児童手当(目安): 0〜2歳 月1.5万円、3歳〜高校生年代 月1万円、第3子以降(22歳年度末までの子で数える)は3歳〜高校生年代で月3万円
@@ -358,7 +366,7 @@
     return { valid: true, base, scn, shortfall, info: scn.scenarioInfo };
   }
 
-  const api = { simulate, riskSummary, pensionParts, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost, childCostOf };
+  const api = { simulate, riskSummary, pensionParts, estimatePension, loanBalance, loanStatus, pensionNet, pensionNetRate, EDU_COURSES, annualPayment, eduCost, childCostOf, childYearCost };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LifePlan = api;
 })(typeof window !== "undefined" ? window : globalThis);

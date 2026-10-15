@@ -263,8 +263,7 @@ function buildReport() {
   cards.push(rpCard("住居", rpTable(null, house, { kv: true })));
   // 子ども費用(養育費+学費、物価上昇込み)を子どもごとに集計
   const perChild = S.children.map((c, ci) => ({ name: c.name || "子ども" + (ci + 1), vals: rows.map((_, n) => {
-    const infl = Math.pow(1 + S.inflation / 100, n), ca = c.age + n;
-    return ((ca >= 0 && ca <= 21 ? LifePlan.childCostOf(S) : 0) + LifePlan.eduCost(c.course, ca)) * infl;
+    return LifePlan.childYearCost(S, c, n);
   }) }));
   if (S.children.length) cards.push(rpCard("子どもの費用", rpTable(["子ども", "進路", "総額(目安)"], S.children.map((c, i) => [esc(c.name || "子ども"), esc(LifePlan.EDU_COURSES[c.course]?.label || ""), rpMoney(perChild[i].vals.reduce((t, v) => t + v, 0))]), { align: ["", "", "n"] }) +
     `<p class="rp-note">養育費(1人あたり年${LifePlan.childCostOf(S)}万円・0〜21歳${S.childFoodInLiving ? "。食費は生活費に含む" : ""})と、進路に応じた学費の目安の合計です。${S.childLeaveCut > 0 ? `子どもが全員独立したあとは、生活費を${S.childLeaveCut}%減らして計算しています。` : ""}${S.childAllowance ? "児童手当(0〜2歳 月1.5万円・3歳〜高校生年代 月1万円・第3子以降 月3万円の目安)を収入に含めています。" : ""}</p>`));

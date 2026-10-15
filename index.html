@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Life Plan Studio</title>
-<link rel="stylesheet" href="style.css?v=42">
-<link rel="stylesheet" href="report.css?v=42">
+<link rel="stylesheet" href="style.css?v=43">
+<link rel="stylesheet" href="report.css?v=43">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -258,7 +258,7 @@
     </details>
 
     <details><summary>👶 子ども</summary>
-      <p class="hint">年齢は現在の年齢です。これから生まれる場合は負の数(例: -2 = 2年後に誕生)。学費は目安の平均値で、養育費は下の金額で調整できます。子どもの食費を「生活費」にも入れている場合は、二重にならないよう下のチェックを入れてください。</p>
+      <p class="hint">年齢は現在の年齢です。これから生まれる場合は負の数(例: -2 = 2年後に誕生)。一人暮らしをする場合は、子どもごとに開始年齢と仕送りなどの月額を入れてください(一人暮らし中は、基本の養育費のかわりに計上します)。学費は目安の平均値で、養育費は下の金額で調整できます。子どもの食費を「生活費」にも入れている場合は、二重にならないよう下のチェックを入れてください。</p>
       <div class="grid"><label>養育費(年額・1人・0〜21歳)<input type="number" data-k="childCost" step="5"></label>
         <label>うち食費の目安(年額)<input type="number" data-k="childFood" step="5"></label></div>
       <label class="check"><input type="checkbox" data-k="childFoodInLiving"> 子どもの食費は「🍚生活費」に含めている(養育費から食費を除く)</label>
@@ -417,13 +417,13 @@
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
-<script src="config.js?v=42"></script>
-<script src="calc.js?v=42"></script>
-<script src="app.js?v=42"></script>
-<script src="wizard.js?v=42"></script>
-<script src="profiles.js?v=42"></script>
-<script src="sync.js?v=42"></script>
-<script src="report.js?v=42"></script>
+<script src="config.js?v=43"></script>
+<script src="calc.js?v=43"></script>
+<script src="app.js?v=43"></script>
+<script src="wizard.js?v=43"></script>
+<script src="profiles.js?v=43"></script>
+<script src="sync.js?v=43"></script>
+<script src="report.js?v=43"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>
