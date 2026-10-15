@@ -4,7 +4,7 @@
 .rp-spin{width:44px;height:44px;border-radius:50%;border:5px solid #dfe4f7;border-top-color:#3b57d6;animation:rpspin 1s linear infinite}
 @keyframes rpspin{to{transform:rotate(360deg)}}
 
-.rp-root{position:absolute;left:0;top:0;width:1123px;z-index:0;background:#fff;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic","Meiryo",sans-serif;color:#1b2333;line-height:1.45}
+.rp-root{position:absolute;left:0;top:0;width:1123px;z-index:0;background:#fff;font-family:"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;color:#1b2333;line-height:1.45}
 .rp-root *{box-sizing:border-box}
 .rp-page{position:relative;width:1123px;height:794px;background:#fff;overflow:hidden;padding:26px 34px 44px}
 .rp-head{display:flex;align-items:baseline;justify-content:space-between;height:40px}

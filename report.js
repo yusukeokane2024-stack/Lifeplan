@@ -392,6 +392,8 @@ async function exportPdf() {
     window.scrollTo(0, 0);
     const built = buildReport(); root = built.root;
     await new Promise(r => setTimeout(r, 50));
+    // 追加された文字のフォント(Noto Sans JP)の読み込みを待つ(待ちすぎないよう最大5秒)
+    if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 5000))]);
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
     for (let i = 0; i < built.pages.length; i++) {
