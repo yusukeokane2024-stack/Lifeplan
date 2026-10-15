@@ -187,14 +187,14 @@ const CAR_FIELDS = [
   { key: "name", type: "text" },
   { key: "age", type: "number", label: "最初に買う年齢", min: 0 },
   { key: "price", type: "number", label: "車の価格(いまの価格・万円)", step: "10", min: 0 },
-  { key: "trade", type: "number", label: "下取り・売却額(万円)", step: "10", min: 0 },
+  { key: "trade", type: "number", label: "下取り・売却額(万円)", step: "10", min: 0, show: c => c.trade > 0 }, // 以前に入力した人だけ表示
   { key: "useLoan", type: "select", label: "支払い方法", resort: true, options: [["cash", "一括(現金)"], ["loan", "ローン"]] },
   { key: "down", type: "number", label: "頭金(万円)", step: "10", min: 0, show: c => c.useLoan === "loan" },
   { key: "loanYears", type: "number", label: "ローンの返済年数", min: 1, show: c => c.useLoan === "loan" },
   { key: "rate", type: "number", label: "ローンの金利(%/年)", step: "0.1", show: c => c.useLoan === "loan" },
   { key: "cycle", type: "number", label: "買い替えの周期(年・0=1回だけ)", min: 0 },
-  { key: "until", type: "number", label: "乗るのをやめる年齢", min: 0 },
-  { key: "upkeep", type: "number", label: "維持費(年額・車検/税/保険など)", step: "5", min: 0, full: true },
+  { key: "until", type: "number", label: "乗るのをやめる年齢", min: 0, show: c => c.until > 0 },
+  { key: "upkeep", type: "number", label: "維持費(年額・車検/税/保険など)", step: "5", min: 0, full: true, show: c => c.upkeep > 0 },
 ];
 const POLICY_FIELDS = [
   { key: "name", type: "text" },
@@ -555,7 +555,7 @@ $("viewSeg").addEventListener("click", ev => {
   update();
 });
 $("addCar").onclick = () => {
-  state.cars.push({ name: "車", age: state.age + 5, price: 300, trade: 0, useLoan: "loan", down: 50, loanYears: 5, rate: 3.5, cycle: 10, until: 75, upkeep: 0 });
+  state.cars.push({ name: "車", age: state.age + 5, price: 300, trade: 0, useLoan: "loan", down: 50, loanYears: 5, rate: 3.5, cycle: 10, until: 0, upkeep: 0 });
   refresh();
 };
 $("addPolicy").onclick = () => {
