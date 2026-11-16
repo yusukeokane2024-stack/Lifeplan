@@ -104,6 +104,11 @@ function chartChildren(rows, w, h, perChild) {
 }
 
 // ---------- ページの部品 ----------
+// ペアローン(持ち家・将来購入・住み替えのいずれか)を使っているか
+function rpIsPairLoan(S) {
+  const h = S.housing;
+  return !!S.spouse.enabled && ((h.type === "own" && h.ownPair) || (h.type === "buy" && h.pair) || (S.moves || []).some(m => m.type === "buy" && m.loanKind === "pair"));
+}
 function rpPage(title, { unit = false, cls = "" } = {}) {
   const el = document.createElement("section");
   el.className = "rp-page " + cls;
@@ -168,7 +173,7 @@ function buildReport() {
     const rv = S.riskView || {}, ageOf = w => { const cur = w === "me" ? S.age : S.spouse.age, a = w === "me" ? rv.age : rv.ageSp; return a > cur ? a : cur; };
     const cases = [["me", "death"], ["spouse", "death"], ["me", "disability"], ["spouse", "disability"]].map(([w, t]) =>
       ({ w, t, r: LifePlan.riskSummary(S, { type: t, who: w, age: ageOf(w) }) }));
-    const hh = S.housing, pairLoan = !!S.spouse.enabled && ((hh.type === "own" && hh.ownPair) || (hh.type === "buy" && hh.pair) || (S.moves || []).some(m => m.type === "buy" && m.loanKind === "pair"));
+    const pairLoan = rpIsPairLoan(S);
     const allNow = ageOf("me") === S.age && ageOf("spouse") === S.spouse.age;
     const nm = w => (w === "me" ? "本人" : "配偶者");
     const rowsHtml = cases.map(({ w, t, r }) => {
@@ -230,7 +235,7 @@ function buildReport() {
     const pol = S.policies.length ? rpTable(["名称", "被保険者", "死亡保険金", "収入保障(月額)", "就業不能(月額)", "保険料(月額)"], S.policies.map(x =>
       [esc(x.name || "保険"), hold(x.who), x.death ? rpMoney(x.death) : "-", x.incomeProtect ? `${x.incomeProtect}万円(〜${x.incomeUntil}歳)` : "-", x.disabilityBenefit ? `${x.disabilityBenefit}万円` : "-", x.premium ? `${x.premium}万円` : "-"]),
       { align: ["", "c", "n", "n", "n", "n"] }) : '<p class="rp-note" style="margin:0">登録なし</p>';
-    cards.push(rpCard("現在の保障", pol + `<p class="rp-note">団信: ${pr.dankin ? "加入(債務者: " + hold(pr.loanHolder) + ")" : "未加入"} / 葬儀費用 ${rpMoney(pr.funeral)} / 死亡後の生活費 ${pr.livingRatio}%</p>`));
+    cards.push(rpCard("現在の保障", pol + `<p class="rp-note">団信: ${pr.dankin ? (rpIsPairLoan(S) ? "加入(ペアローン: 各自の名義分)" : "加入(債務者: " + hold(pr.loanHolder) + ")") : "未加入"} / 葬儀費用 ${rpMoney(pr.funeral)} / 死亡後の生活費 ${pr.livingRatio}%</p>`));
   }
   const asset = S.assets.map(a => [esc(a.name), a.type === "invest" ? "投資" : "預貯金", rpMoney(a.amount), `${a.rate}%`, a.monthly ? `${a.monthly}万円/月` : "-", a.monthly ? `〜${a.until > 0 ? a.until : S.retireAge}歳` : "-"]);
   asset.push({ sum: true, cells: ["合計", "", rpMoney(R.assetTotal), "", R.monthlyContrib ? `${Math.round(R.monthlyContrib * 10) / 10}万円/月` : "-", ""] });
