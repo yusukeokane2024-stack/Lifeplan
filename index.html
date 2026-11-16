@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=45">
-<link rel="stylesheet" href="report.css?v=45">
+<link rel="stylesheet" href="style.css?v=46">
+<link rel="stylesheet" href="report.css?v=46">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6df5">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -409,7 +409,8 @@
       <div class="grid">
         <label>誰に起こる?<select data-k="riskView.who"><option value="me">本人</option><option value="spouse">配偶者</option></select></label>
         <label>何が起こる?<select data-k="riskView.type"><option value="death">死亡</option><option value="disability">長期の就業不能(病気・ケガ)</option></select></label>
-        <label>その人の、発生時の年齢<input type="number" data-k="riskView.age" placeholder="現在の年齢" min="0" max="100"></label>
+        <label id="riskAgeMe">本人の、発生時の年齢<input type="number" data-k="riskView.age" placeholder="現在の年齢" min="0" max="100"></label>
+        <label id="riskAgeSp">配偶者の、発生時の年齢<input type="number" data-k="riskView.ageSp" placeholder="現在の年齢" min="0" max="100"></label>
       </div>
       <button type="button" id="showRiskMain" class="secondary">この場合を、上の結果(グラフ・表)に表示する</button>
       <div id="riskOut"></div>
@@ -420,13 +421,13 @@
     <p class="hint">税金・社会保険料・年金制度の詳細は考慮していない概算です。収入は手取り額で入力してください。</p>
   </section>
 </main>
-<script src="config.js?v=45"></script>
-<script src="calc.js?v=45"></script>
-<script src="app.js?v=45"></script>
-<script src="wizard.js?v=45"></script>
-<script src="profiles.js?v=45"></script>
-<script src="sync.js?v=45"></script>
-<script src="report.js?v=45"></script>
+<script src="config.js?v=46"></script>
+<script src="calc.js?v=46"></script>
+<script src="app.js?v=46"></script>
+<script src="wizard.js?v=46"></script>
+<script src="profiles.js?v=46"></script>
+<script src="sync.js?v=46"></script>
+<script src="report.js?v=46"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>

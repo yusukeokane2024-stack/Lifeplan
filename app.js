@@ -24,7 +24,7 @@ const DEFAULTS = {
     pair: false, pairRatio: 50 },
   policies: [],
   protection: { funeral: 200, livingRatio: 75, disabilityLossRate: 100, disabilityMedical: 10, disabilityYears: 0, disabilityPension: true, dankin: true, loanHolder: "me" },
-  riskView: { who: "me", type: "death", age: 0 },
+  riskView: { who: "me", type: "death", age: 0, ageSp: 0 }, // age=本人、ageSp=配偶者(0=現在の年齢)
   incomeChanges: [],
   cars: [],
   moves: [],
@@ -370,7 +370,7 @@ function renderRisk() {
   if (!box.open) return; // 開いているときだけ計算する(入力のたびに何十回も試算するため)
   const rv = state.riskView, out = $("riskOut");
   const personAge = rv.who === "me" ? state.age : state.spouse.age;
-  const age = rv.age > 0 ? rv.age : personAge;
+  const rvAge = rv.who === "me" ? rv.age : rv.ageSp, age = rvAge > 0 ? rvAge : personAge;
   const card = (label, val, cls = "", sub = "") => `<div class="card"><small>${label}</small><strong class="${cls}">${val}</strong>${sub ? `<small>${sub}</small>` : ""}</div>`;
   let html = "";
   if ((rv.who === "spouse" || rv.type === "death") && !state.spouse.enabled) {
@@ -424,11 +424,12 @@ function viewScenario() {
   if (viewMode !== "risk") return null;
   const rv = state.riskView;
   if ((rv.who === "spouse" || rv.type === "death") && !state.spouse.enabled) return null;
-  const pAge = rv.who === "me" ? state.age : state.spouse.age, age = rv.age > 0 ? rv.age : pAge;
+  const pAge = rv.who === "me" ? state.age : state.spouse.age, rvAge = rv.who === "me" ? rv.age : rv.ageSp, age = rvAge > 0 ? rvAge : pAge;
   return age < pAge ? null : { type: rv.type, who: rv.who, age };
 }
 function renderView() {
   const rv = state.riskView, sc = viewScenario(), active = !!(sc && result.scenarioInfo);
+  $("riskAgeMe").style.display = rv.who === "me" ? "" : "none"; $("riskAgeSp").style.display = rv.who === "spouse" ? "" : "none"; // 年齢は、本人と配偶者で別々に持つ
   document.querySelectorAll("#viewSeg button").forEach(b => {
     const v = b.dataset.view;
     b.classList.toggle("on", v === "normal" ? !active : active && rv.type === "death" && ((v === "death-me" && rv.who === "me") || (v === "death-spouse" && rv.who === "spouse")));
