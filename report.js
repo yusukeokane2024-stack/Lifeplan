@@ -161,31 +161,35 @@ function buildReport() {
     <div class="rp-chart"><h3>資産推移グラフ</h3>${chartAssets(rows, 1040, 420)}${rpLegend([[RP.cats[0], "預貯金"], [RP.cats[1], "投資"], [RP.ink, "資産合計", true]])}</div>`);
   add(sum);
 
-  // 万が一のときの家計(いま起きた場合の4つのケース)
+  // 万が一のときの家計(アプリで設定した年齢で起きた場合の4つのケース)
   {
     const pg = rpPage("万が一のときの家計");
+    // 発生時の年齢は、アプリで設定した年齢(未設定なら現在の年齢)
+    const rv = S.riskView || {}, ageOf = w => { const cur = w === "me" ? S.age : S.spouse.age, a = w === "me" ? rv.age : rv.ageSp; return a > cur ? a : cur; };
     const cases = [["me", "death"], ["spouse", "death"], ["me", "disability"], ["spouse", "disability"]].map(([w, t]) =>
-      ({ w, t, r: LifePlan.riskSummary(S, { type: t, who: w, age: w === "me" ? S.age : S.spouse.age }) }));
+      ({ w, t, r: LifePlan.riskSummary(S, { type: t, who: w, age: ageOf(w) }) }));
+    const hh = S.housing, pairLoan = !!S.spouse.enabled && ((hh.type === "own" && hh.ownPair) || (hh.type === "buy" && hh.pair) || (S.moves || []).some(m => m.type === "buy" && m.loanKind === "pair"));
+    const allNow = ageOf("me") === S.age && ageOf("spouse") === S.spouse.age;
     const nm = w => (w === "me" ? "本人" : "配偶者");
     const rowsHtml = cases.map(({ w, t, r }) => {
-      const label = `${nm(w)}が${t === "death" ? "死亡した" : "長期の就業不能になった"}場合(${w === "me" ? S.age : S.spouse.age}歳)`;
+      const label = `${nm(w)}が${t === "death" ? "死亡した" : "長期の就業不能になった"}場合(${ageOf(w)}歳)`;
       if (!r.valid) return `<tr><td>${label}</td><td colspan="5" class="c">配偶者を含めると確認できます</td></tr>`;
       const i = r.info, okAll = r.scn.depletedAge === null;
-      const one = t === "death" ? `保険金 ${rpMoney(i.lump)}<br>葬儀 -${rpMoney(i.funeral)}` : "-";
+      const one = t === "death" ? `保険金 ${rpMoney(i.lump)}<br>葬儀 -${rpMoney(i.funeral)}${i.loanCleared > 0 ? `<br>団信で消えるローン ${rpMoney(i.loanCleared)}` : ""}` : "-";
       const pen = t === "death" ? `${rpMoney(i.survivorBasic + i.survivorKosei)}/年` : `${rpMoney(i.disabilityPension)}/年`;
       const ins = t === "death" ? (i.incomeProtect ? `収入保障 ${rpMoney(i.incomeProtect)}/年` : "-") : (i.benefit ? `就業不能保険 ${rpMoney(i.benefit)}/年` : "-");
       return `<tr><td>${label}</td><td class="n">${one}</td><td class="n">${pen}</td><td class="n">${ins}</td>` +
         `<td class="n" style="${okAll ? "color:#0a7a4d" : "color:#c1272d;font-weight:700"}">${okAll ? "不足なし" : "約" + rpMoney(r.shortfall)}</td><td class="c">${okAll ? "尽きない" : r.scn.depletedAge + "歳"}</td></tr>`;
     }).join("");
     pg.querySelector(".rp-foot").insertAdjacentHTML("beforebegin", `
-      <div class="rp-card" style="margin-top:12px"><h3>いま起きた場合の、家計への影響</h3><div class="rp-body">
+      <div class="rp-card" style="margin-top:12px"><h3>${allNow ? "いま起きた場合の、家計への影響" : "設定した年齢で起きた場合の、家計への影響"}</h3><div class="rp-body">
         <table class="rp-t"><tr><th style="width:30%">ケース</th><th>一時金</th><th>遺族年金・障害年金</th><th>保険の給付</th><th>追加で必要な保障額</th><th>資産が尽きる年齢</th></tr>${rowsHtml}</table>
         <p class="rp-note">「追加で必要な保障額」は、万が一の発生時に追加で受け取れば、${S.endAge}歳まで資産が尽きなくなる最小の金額です。「不足なし」は、現在の保障で足りる見込みを表します。</p>
       </div></div>
       <div class="rp-card" style="margin-top:12px"><h3>試算の前提</h3><div class="rp-body" style="font-size:12.5px;line-height:1.8">
         <ul style="margin:2px 0 0 0;padding:0 0 0 20px;list-style:disc">
           <li><b>死亡</b>: 亡くなった方の給与・年金・退職金が止まり、生活費は${S.protection.livingRatio}%になります。死亡保険金・収入保障保険・遺族年金(遺族基礎年金+遺族厚生年金)が入り、葬儀費用${rpMoney(S.protection.funeral)}がかかります。</li>
-          <li><b>団信</b>: ${S.protection.dankin ? `加入(債務者: ${nm(S.protection.loanHolder)})。債務者が亡くなると、住宅ローンの残りが完済されます。` : "加入していない前提です。ローンは遺族が返済を続けます。"}</li>
+          <li><b>団信</b>: ${S.protection.dankin ? (pairLoan ? "加入(ペアローン)。本人名義分は本人が、配偶者名義分は配偶者が亡くなったときに、その人の分の残りが完済されます。もう一方の分は返済が続きます。住宅を買う前(ローンがまだない時点)に亡くなる場合は、団信は効きません。" : `加入(債務者: ${nm(S.protection.loanHolder)})。債務者が亡くなると、住宅ローンの残りが完済されます。`) : "加入していない前提です。ローンは遺族が返済を続けます。"}</li>
           <li><b>就業不能</b>: 収入が${S.protection.disabilityLossRate}%減り、${S.protection.disabilityYears > 0 ? S.protection.disabilityYears + "年間" : "退職年齢まで"}続くものとします。追加の医療費(月${S.protection.disabilityMedical}万円)がかかり、就業不能保険${S.protection.disabilityPension ? "と障害年金(2級の目安)" : ""}が入ります。</li>
           <li>遺族年金・障害年金は、制度にもとづく目安です。中高齢寡婦加算、配偶者の加給年金、年収による制限、再婚などは含みません。保険金・年金は、税金がかからない前提です。</li>
         </ul></div></div>`);

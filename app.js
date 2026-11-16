@@ -351,7 +351,12 @@ function toCsv(rows) {
 
 // ---- 万が一のとき ----
 const whoName = w => (w === "me" ? "本人" : "配偶者");
-function riskCaseAt(who, type, age) { return LifePlan.riskSummary(state, { type, who, age: age > 0 ? age : (who === "me" ? state.age : state.spouse.age) }); }
+// 万が一が起きる年齢(本人・配偶者それぞれ。未設定または現在より若い場合は、現在の年齢)
+function riskAgeOf(who) {
+  const cur = who === "me" ? state.age : state.spouse.age, a = who === "me" ? state.riskView.age : state.riskView.ageSp;
+  return a > cur ? a : cur;
+}
+function riskCaseAt(who, type, age) { return LifePlan.riskSummary(state, { type, who, age: age > 0 ? age : riskAgeOf(who) }); }
 function lineChart(rows, series, w = 700, h = 240) {
   const m = { l: 56, r: 14, t: 16, b: 28 };
   const all = series.flatMap(sr => sr.vals);
@@ -409,7 +414,7 @@ function renderRisk() {
     <div class="legend"><span><i class="lg-main"></i>通常の場合</span><span><i class="lg-risk"></i>${label}</span></div></div>`;
   // 4つのケースの一覧(いま起きた場合)
   const cases = [["me", "death"], ["spouse", "death"], ["me", "disability"], ["spouse", "disability"]].map(([w, t]) => ({ w, t, r: riskCaseAt(w, t, 0) }));
-  html += `<h3 class="sub">いま起きた場合の、4つのケース</h3><div class="table-wrap"><table class="plain"><tr><th>ケース</th><th>追加で必要な保障額</th><th>資産が尽きる年齢</th></tr>` +
+  html += `<h3 class="sub">設定した年齢で起きた場合の、4つのケース</h3><div class="table-wrap"><table class="plain"><tr><th>ケース</th><th>追加で必要な保障額</th><th>資産が尽きる年齢</th></tr>` +
     cases.map(c => c.r.valid ? `<tr><td>${whoName(c.w)}が${c.t === "death" ? "死亡" : "就業不能"}</td><td class="${c.r.shortfall ? "bad" : "good"}">${c.r.shortfall ? fmt(c.r.shortfall) + "万円" : "不足なし"}</td><td>${c.r.scn.depletedAge === null ? "尽きない" : c.r.scn.depletedAge + "歳"}</td></tr>`
       : `<tr><td>${whoName(c.w)}が${c.t === "death" ? "死亡" : "就業不能"}</td><td colspan="2" class="hint">配偶者を含めると確認できます</td></tr>`).join("") + `</table></div>`;
   html += `<details class="inner"><summary>年ごとの収支(この場合)</summary><div class="table-wrap"><table class="plain"><tr><th>年齢</th><th>給与</th><th>年金(手取り)</th><th>遺族・障害年金</th><th>保険の給付</th><th>支出合計</th><th>年間収支</th><th>資産(通常)</th><th>資産(この場合)</th></tr>` +
