@@ -296,43 +296,59 @@ function buildReport() {
   }
   inputPages.forEach((p, i) => { p.querySelector(".rp-title").textContent = `入力データ一覧 ${i + 1}/${inputPages.length}`; });
 
-  // キャッシュフロー表(1ページ20年ずつ。年を横に並べる)
-  const nTab = Math.ceil(rows.length / 20), PER = Math.ceil(rows.length / nTab); // 1ページ20列まで。ページ間で列数を均等にする
+  // キャッシュフロー表(1ページ20年ずつ。年を横に並べる)。通常のプランと、本人・配偶者が亡くなった場合
   const sp = S.spouse.enabled;
-  const rowDefs = [
-    ["sec age", "家族年齢"],
-    ["l", "本人", r => r.age],
-    ...(sp ? [["l", "配偶者", r => r.spouseAge]] : []),
-    ...S.children.map((c, i) => ["l", esc(c.name || "子ども" + (i + 1)), (r, n) => c.age + n]),
-    ["sec inc", "収入"],
-    ["s", "給与(本人)", r => r.salary], ...(sp ? [["s", "給与(配偶者)", r => r.spouseSalary]] : []),
-    ["s", "年金(手取り)", r => r.pension], ...(rows.some(r => r.allowance > 0.5) ? [["s", "児童手当", r => r.allowance]] : []), ["s", "退職金", r => r.severance], ["tot", "収入合計", r => r.incomeTotal],
-    ["sec out", "支出"],
-    ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
-    ["s", "イベント・その他", r => r.eventCost],
-    ...(rows.some(r => r.car > 0.5) ? [["s", "車の費用", r => r.car]] : []), ["tot", "支出合計", r => r.outgoTotal],
-    ["sec bal", "収支・資産"],
-    ["s", "年間収支(現金)", r => r.net], ["s", "運用益(含み益)", r => r.invest], ["s", "資産の増減", r => r.assetChange], ["s", "積立額(投資へ)", r => r.contrib], ["s", "預貯金残高", r => r.cashBal], ["s", "投資残高", r => r.investBal], ["tot", "資産合計", r => r.balance],
-  ];
-  const rh = Math.max(15, Math.min(22, Math.floor(600 / (rowDefs.length + 2))));
-  const fs = rh >= 19 ? 12 : rh >= 17 ? 11 : 10;
-  for (let t = 0; t < nTab; t++) {
-    const slice = rows.slice(t * PER, (t + 1) * PER), pad = PER - slice.length;
-    const p = rpPage(`キャッシュフロー表 ${t + 1}/${nTab}`, { unit: true });
-    const empty = '<td></td>'.repeat(pad);
-    let html = `<table class="rp-cf" style="font-size:${fs}px"><colgroup><col style="width:132px">${'<col>'.repeat(PER)}</colgroup>` +
-      `<tr style="height:${rh}px"><th class="l">西暦</th>${slice.map(r => `<th>${r.year}</th>`).join("")}${'<th></th>'.repeat(pad)}</tr>`;
-    for (const [cls, label, f] of rowDefs) {
-      if (cls.startsWith("sec")) { html += `<tr class="${cls}" style="height:${rh}px"><td colspan="${PER + 1}">${label}</td></tr>`; continue; }
-      html += `<tr class="${cls === "tot" ? "tot" : ""}" style="height:${rh}px"><td class="${cls === "s" ? "sub" : "l"}">${cls === "s" ? "├ " : ""}${label}</td>` +
-        slice.map((r, k) => {
-          const v = f(r, t * PER + k);
-          if (cls === "l") return `<td>${v === null || v === undefined ? "-" : v}</td>`;
-          return `<td class="${v < -0.5 ? "neg" : ""}">${rpNum(v)}</td>`;
-        }).join("") + empty + "</tr>";
+  const cfPages = (tRows, titleOf, scn) => {
+    const nTab = Math.ceil(tRows.length / 20), PER = Math.ceil(tRows.length / nTab); // 1ページ20列まで。ページ間で列数を均等にする
+    const rowDefs = [
+      ["sec age", "家族年齢"],
+      ["l", "本人", r => r.age],
+      ...(sp ? [["l", "配偶者", r => r.spouseAge]] : []),
+      ...S.children.map((c, i) => ["l", esc(c.name || "子ども" + (i + 1)), (r, n) => c.age + n]),
+      ["sec inc", "収入"],
+      ["s", "給与(本人)", r => r.salary], ...(sp ? [["s", "給与(配偶者)", r => r.spouseSalary]] : []),
+      ["s", "年金(手取り)", r => r.pension],
+      ...(tRows.some(r => r.benefit > 0.5) ? [["s", "遺族・障害年金", r => r.benefit]] : []),
+      ...(tRows.some(r => r.insIncome > 0.5) ? [["s", "保険の給付", r => r.insIncome]] : []),
+      ...(tRows.some(r => r.allowance > 0.5) ? [["s", "児童手当", r => r.allowance]] : []), ["s", "退職金", r => r.severance], ["tot", "収入合計", r => r.incomeTotal],
+      ["sec out", "支出"],
+      ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
+      ["s", "イベント・その他", r => r.eventCost],
+      ...(tRows.some(r => r.car > 0.5) ? [["s", "車の費用", r => r.car]] : []), ["tot", "支出合計", r => r.outgoTotal],
+      ["sec bal", "収支・資産"],
+      ["s", "年間収支(現金)", r => r.net], ["s", "運用益(含み益)", r => r.invest], ["s", "資産の増減", r => r.assetChange], ["s", "積立額(投資へ)", r => r.contrib], ["s", "預貯金残高", r => r.cashBal], ["s", "投資残高", r => r.investBal], ["tot", "資産合計", r => r.balance],
+    ];
+    const rh = Math.max(15, Math.min(22, Math.floor(600 / (rowDefs.length + 2))));
+    const fs = rh >= 19 ? 12 : rh >= 17 ? 11 : 10;
+    for (let t = 0; t < nTab; t++) {
+      const slice = tRows.slice(t * PER, (t + 1) * PER), pad = PER - slice.length;
+      const p = rpPage(titleOf(t + 1, nTab), { unit: true });
+      const empty = '<td></td>'.repeat(pad);
+      let html = `<table class="rp-cf" style="font-size:${fs}px"><colgroup><col style="width:132px">${'<col>'.repeat(PER)}</colgroup>` +
+        `<tr style="height:${rh}px"><th class="l">西暦</th>${slice.map(r => `<th>${r.year}</th>`).join("")}${'<th></th>'.repeat(pad)}</tr>`;
+      for (const [cls, label, f] of rowDefs) {
+        if (cls.startsWith("sec")) { html += `<tr class="${cls}" style="height:${rh}px"><td colspan="${PER + 1}">${label}</td></tr>`; continue; }
+        html += `<tr class="${cls === "tot" ? "tot" : ""}" style="height:${rh}px"><td class="${cls === "s" ? "sub" : "l"}">${cls === "s" ? "├ " : ""}${label}</td>` +
+          slice.map((r, k) => {
+            const v = f(r, t * PER + k);
+            if (cls === "l") return `<td>${v === null || v === undefined ? "-" : v}</td>`;
+            return `<td class="${v < -0.5 ? "neg" : ""}">${rpNum(v)}</td>`;
+          }).join("") + empty + "</tr>";
+      }
+      const note = scn ? `<p class="rp-note" style="margin:6px 0 0">${scn}</p>` : "";
+      p.querySelector(".rp-foot").insertAdjacentHTML("beforebegin", html + "</table>" + note);
+      add(p);
     }
-    p.querySelector(".rp-foot").insertAdjacentHTML("beforebegin", html + "</table>");
-    add(p);
+  };
+  cfPages(rows, (t, n) => `キャッシュフロー表 ${t}/${n}`);
+  for (const who of ["me", "spouse"]) {
+    if (who === "spouse" && !sp) continue;
+    const cur = who === "me" ? S.age : S.spouse.age, a = who === "me" ? (S.riskView || {}).age : (S.riskView || {}).ageSp, age = a > cur ? a : cur;
+    const sr = LifePlan.simulate({ ...S, scenario: { type: "death", who, age } });
+    if (!sr.scenarioInfo) continue;
+    const nm = who === "me" ? "本人" : "配偶者";
+    cfPages(sr.rows.map((r, i) => ({ ...r, year: y0 + i })), (t, n) => `キャッシュフロー表(${nm}死亡) ${t}/${n}`,
+      `${nm}が${age}歳で亡くなった場合の試算です。${nm}の給与・年金・退職金は止まり、生活費は${S.protection.livingRatio}%になります。死亡保険金・収入保障保険・遺族年金が入り、葬儀費用${rpMoney(S.protection.funeral)}がかかります。${S.protection.dankin ? "団信が効くローンは、亡くなった方の名義分の残りが完済されます。" : ""}`);
   }
 
   // グラフ
