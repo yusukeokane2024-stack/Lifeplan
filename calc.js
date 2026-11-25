@@ -152,9 +152,16 @@
     const salaryOf = (who, baseIncome, baseRaise, personAge, n, retireAge) => {
       let v = baseIncome * Math.pow(1 + baseRaise / 100, n);
       for (const c of changes) {
-        if (c.who !== who) continue;
+        if (c.who !== who || c.kind === "leave") continue;
         const to = c.to > 0 ? c.to : retireAge;
         if (personAge >= c.from && personAge < to) v = c.income * Math.pow(1 + (c.raise || 0) / 100, personAge - c.from);
+      }
+      // 育児休業: その年の休業月数ぶん、給与のかわりに育児休業給付金(手取りの約8割で最初の6か月、その後は約6割)が入る
+      for (const c of changes) {
+        if (c.who !== who || c.kind !== "leave" || personAge < c.from || personAge >= retireAge) continue;
+        const L = Math.max(0, c.months > 0 ? c.months : 12), used = 12 * (personAge - c.from);
+        const m = Math.max(0, Math.min(12, L - used)), hi = Math.max(0, Math.min(m, 6 - used)), lo = m - hi;
+        if (m > 0) v = v * (12 - m) / 12 + v / 12 * (hi * 0.8 + lo * 0.6);
       }
       return v;
     };

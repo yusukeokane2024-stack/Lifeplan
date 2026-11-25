@@ -52,7 +52,7 @@ function merge(s) {
   out.debts = (Array.isArray(s.debts) ? s.debts : []).map(d => ({ mode: "balance", ...d }));
   out.children = Array.isArray(s.children) ? s.children : [];
   out.policies = (Array.isArray(s.policies) ? s.policies : []).map(x => ({ premiumUntil: 0, inLiving: "", ...x }));
-  out.incomeChanges = Array.isArray(s.incomeChanges) ? s.incomeChanges : [];
+  out.incomeChanges = (Array.isArray(s.incomeChanges) ? s.incomeChanges : []).map(c => ({ kind: "", months: 12, ...c }));
   out.cars = Array.isArray(s.cars) ? s.cars : [];
   out.moves = Array.isArray(s.moves) ? s.moves : [];
   out.events = Array.isArray(s.events) ? s.events : d.events;
@@ -210,10 +210,12 @@ const POLICY_FIELDS = [
 const INCOME_FIELDS = [
   { key: "name", type: "text" },
   { key: "who", type: "select", label: "対象", options: [["me", "本人"], ["spouse", "配偶者"]] },
+  { key: "kind", type: "select", label: "種類", full: true, resort: true, options: [["", "年収の変化(手取りを直接入力)"], ["leave", "育児休業(給付金を自動で計算)"]] },
   { key: "from", type: "number", label: "開始年齢", min: 0, resort: true },
-  { key: "to", type: "number", label: "終了年齢(空欄=退職まで)", placeholder: "空欄", blank: true, min: 0 },
-  { key: "income", type: "number", label: "変化後の年間手取り(万円)", step: "10", min: 0 },
-  { key: "raise", type: "number", label: "その後の昇給率(%/年)", step: "0.1", signed: true },
+  { key: "months", type: "number", label: "育休の期間(月数)", min: 1, max: 36, show: c => c.kind === "leave" },
+  { key: "to", type: "number", label: "終了年齢(空欄=退職まで)", placeholder: "空欄", blank: true, min: 0, show: c => c.kind !== "leave" },
+  { key: "income", type: "number", label: "変化後の年間手取り(万円)", step: "10", min: 0, show: c => c.kind !== "leave" },
+  { key: "raise", type: "number", label: "その後の昇給率(%/年)", step: "0.1", signed: true, show: c => c.kind !== "leave" },
 ];
 const MOVE_FIELDS = [
   { key: "name", type: "text" },
@@ -572,6 +574,11 @@ $("addPolicy").onclick = () => {
 };
 $("addIncome").onclick = () => {
   state.incomeChanges.push({ name: "収入の変化", who: "me", from: state.age + 5, to: 0, income: Math.round(state.income * 0.8 / 10) * 10, raise: 0 });
+  refresh();
+};
+$("addLeave").onclick = () => {
+  const w = state.spouse.enabled ? "spouse" : "me";
+  state.incomeChanges.push({ name: "育休", who: w, kind: "leave", from: (w === "me" ? state.age : state.spouse.age) + 1, months: 12, to: 0, income: 0, raise: 0 });
   refresh();
 };
 $("addMove").onclick = () => {

@@ -228,7 +228,9 @@ function buildReport() {
     return [esc(c.name || "車"), `${ages.slice(0, 5).join("・")}${ages.length > 5 ? "…" : ""}歳`, rpMoney(c.price), c.useLoan === "loan" ? `ローン(頭金${rpMoney(c.down || 0)}・${c.loanYears}年・${c.rate}%)` : "一括", c.cycle > 0 ? `${c.cycle}年ごと(〜${until}歳)` : "1回"];
   }), { align: ["", "c", "n", "", "c"] }) + '<p class="rp-note">価格は現在の価格で、物価上昇率で購入年の価格にしています。ローンの返済は「ローン返済」に、購入時の頭金・一括の支払いと維持費は「車の費用」に入ります。</p>'));
   if (S.incomeChanges.length) cards.push(rpCard("収入の変化", rpTable(["内容", "対象", "期間", "年間手取り", "昇給率"], [...S.incomeChanges].sort((a, b) => a.from - b.from).map(c =>
-    [esc(c.name || "収入の変化"), c.who === "spouse" ? "配偶者" : "本人", `${c.from}歳〜${c.to > 0 ? c.to + "歳" : "退職まで"}`, rpMoney(c.income), `${c.raise || 0}%`]), { align: ["", "c", "c", "n", "n"] }) +
+    c.kind === "leave"
+      ? [esc(c.name || "育休"), c.who === "spouse" ? "配偶者" : "本人", `${c.from}歳から${c.months > 0 ? c.months : 12}か月`, "育休給付(手取りの約8割→6割)", "-"]
+      : [esc(c.name || "収入の変化"), c.who === "spouse" ? "配偶者" : "本人", `${c.from}歳〜${c.to > 0 ? c.to + "歳" : "退職まで"}`, rpMoney(c.income), `${c.raise || 0}%`]), { align: ["", "c", "c", "n", "n"] }) +
     '<p class="rp-note">期間外は、元の収入(基本設定の年収と昇給率)に戻ります。</p>'));
   {
     const pr = S.protection, hold = w => (w === "me" ? "本人" : "配偶者");
