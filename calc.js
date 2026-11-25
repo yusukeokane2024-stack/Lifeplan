@@ -320,7 +320,17 @@
       let contrib = 0;
       for (const x of buckets) if (age < x.until && x.monthly > 0) { x.amount += x.monthly * 12; contrib += x.monthly * 12; }
       const cashIn = salary + spouseSalary + pension + severance + benefit + insIncome + allowance;
-      const outgoTotal = living + housing + child + debt + eventCost + carCost;
+      // 保険料: 生活費に含めていないものを、支出に足す(払い終える年齢まで。亡くなった方の保険は、発生年から止まる)
+      let insurance = 0;
+      for (const x of policies) {
+        if (!(x.premium > 0) || x.inLiving) continue;
+        if (x.who === "spouse" && !sp) continue;
+        const wa = ageOf(x.who), until = x.premiumUntil > 0 ? x.premiumUntil : (x.incomeProtect > 0 && x.incomeUntil > 0 ? x.incomeUntil : person(x.who).retireAge);
+        if (wa >= until) continue;
+        if (sc && sc.type === "death" && sc.who === x.who && age >= evtMyAge) continue;
+        insurance += x.premium * 12;
+      }
+      const outgoTotal = living + housing + child + debt + eventCost + carCost + insurance;
       const incomeTotal = cashIn; // 現金で入る収入。運用益は資産に積み上がるだけなので、収入には含めない
       const flow = cashIn - outgoTotal - contrib;
       if (flow >= 0) sink.amount += flow;
@@ -339,7 +349,7 @@
       names.push(...moveNames, ...riskNames, ...carNames);
       rows.push({
         age, spouseAge, salary, spouseSalary, pension, severance, invest, benefit, insIncome, allowance,
-        incomeTotal, living, housing, child, debt, eventCost, car: carCost, outgoTotal, contrib,
+        incomeTotal, living, housing, child, debt, eventCost, car: carCost, insurance, outgoTotal, contrib,
         net: incomeTotal - outgoTotal, assetChange, balance, cashBal, investBal: balance - cashBal, eventNames: names.join("、"),
       });
     }

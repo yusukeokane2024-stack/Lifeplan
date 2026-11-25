@@ -233,7 +233,7 @@ function buildReport() {
   {
     const pr = S.protection, hold = w => (w === "me" ? "本人" : "配偶者");
     const pol = S.policies.length ? rpTable(["名称", "被保険者", "死亡保険金", "収入保障(月額)", "就業不能(月額)", "保険料(月額)"], S.policies.map(x =>
-      [esc(x.name || "保険"), hold(x.who), x.death ? rpMoney(x.death) : "-", x.incomeProtect ? `${x.incomeProtect}万円(〜${x.incomeUntil}歳)` : "-", x.disabilityBenefit ? `${x.disabilityBenefit}万円` : "-", x.premium ? `${x.premium}万円` : "-"]),
+      [esc(x.name || "保険"), hold(x.who), x.death ? rpMoney(x.death) : "-", x.incomeProtect ? `${x.incomeProtect}万円(〜${x.incomeUntil}歳)` : "-", x.disabilityBenefit ? `${x.disabilityBenefit}万円` : "-", x.premium ? `${x.premium}万円${x.inLiving ? "(生活費に含む)" : ""}` : "-"]),
       { align: ["", "c", "n", "n", "n", "n"] }) : '<p class="rp-note" style="margin:0">登録なし</p>';
     cards.push(rpCard("現在の保障", pol + `<p class="rp-note">団信: ${pr.dankin ? (rpIsPairLoan(S) ? "加入(ペアローン: 各自の名義分)" : "加入(債務者: " + hold(pr.loanHolder) + ")") : "未加入"} / 葬儀費用 ${rpMoney(pr.funeral)} / 死亡後の生活費 ${pr.livingRatio}%</p>`));
   }
@@ -314,7 +314,7 @@ function buildReport() {
       ["sec out", "支出"],
       ["s", "生活費", r => r.living], ["s", "住居費", r => r.housing], ["s", "子ども費用", r => r.child], ["s", "ローン返済", r => r.debt],
       ["s", "イベント・その他", r => r.eventCost],
-      ...(tRows.some(r => r.car > 0.5) ? [["s", "車の費用", r => r.car]] : []), ["tot", "支出合計", r => r.outgoTotal],
+      ...(tRows.some(r => r.car > 0.5) ? [["s", "車の費用", r => r.car]] : []), ...(tRows.some(r => r.insurance > 0.5) ? [["s", "保険料", r => r.insurance]] : []), ["tot", "支出合計", r => r.outgoTotal],
       ["sec bal", "収支・資産"],
       ["s", "年間収支(現金)", r => r.net], ["s", "運用益(含み益)", r => r.invest], ["s", "資産の増減", r => r.assetChange], ["s", "積立額(投資へ)", r => r.contrib], ["s", "預貯金残高", r => r.cashBal], ["s", "投資残高", r => r.investBal], ["tot", "資産合計", r => r.balance],
     ];

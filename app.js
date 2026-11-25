@@ -51,7 +51,7 @@ function merge(s) {
   if (s.housing && !s.housing.ownMode) out.housing.ownMode = "balance";
   out.debts = (Array.isArray(s.debts) ? s.debts : []).map(d => ({ mode: "balance", ...d }));
   out.children = Array.isArray(s.children) ? s.children : [];
-  out.policies = Array.isArray(s.policies) ? s.policies : [];
+  out.policies = (Array.isArray(s.policies) ? s.policies : []).map(x => ({ premiumUntil: 0, inLiving: "", ...x }));
   out.incomeChanges = Array.isArray(s.incomeChanges) ? s.incomeChanges : [];
   out.cars = Array.isArray(s.cars) ? s.cars : [];
   out.moves = Array.isArray(s.moves) ? s.moves : [];
@@ -203,7 +203,9 @@ const POLICY_FIELDS = [
   { key: "incomeProtect", type: "number", label: "収入保障保険(月額・万円)", step: "1", min: 0 },
   { key: "incomeUntil", type: "number", label: "収入保障の満了年齢", min: 0 },
   { key: "disabilityBenefit", type: "number", label: "就業不能保険(月額・万円)", step: "1", min: 0 },
-  { key: "premium", type: "number", label: "保険料(月額・万円・参考)", step: "0.1", min: 0, full: true },
+  { key: "premium", type: "number", label: "保険料(月額・万円)", step: "0.1", min: 0 },
+  { key: "premiumUntil", type: "number", label: "保険料を払い終える年齢", placeholder: "空欄=収入保障の満了/退職まで", blank: true, min: 0 },
+  { key: "inLiving", type: "select", label: "この保険料は、生活費の項目に含めていますか?", full: true, options: [["", "含めていない(支出に足す)"], ["1", "含めている(足さない)"]] },
 ];
 const INCOME_FIELDS = [
   { key: "name", type: "text" },
@@ -321,7 +323,7 @@ const COLS = [
   ["本人給与", r => r.salary], ["配偶者給与", r => r.spouseSalary], ["年金(手取り)", r => r.pension], ["遺族・障害年金", r => r.benefit, true], ["保険の給付", r => r.insIncome, true], ["児童手当", r => r.allowance, true],
   ["退職金", r => r.severance], ["収入合計", r => r.incomeTotal],
   ["生活費", r => r.living], ["住居費", r => r.housing], ["子ども費用", r => r.child], ["ローン返済", r => r.debt],
-  ["イベント等", r => r.eventCost], ["車の費用", r => r.car, true], ["支出合計", r => r.outgoTotal],
+  ["イベント等", r => r.eventCost], ["車の費用", r => r.car, true], ["保険料", r => r.insurance, true], ["支出合計", r => r.outgoTotal],
   ["年間収支(現金)", r => r.net], ["運用益(含み益)", r => r.invest], ["資産の増減", r => r.assetChange], ["積立額", r => r.contrib], ["資産残高", r => r.balance], ["預貯金残高", r => r.cashBal], ["投資残高", r => r.investBal], ["イベント名", r => r.eventNames],
 ];
 const num = v => typeof v === "number" ? Math.round(v) : v;
@@ -565,7 +567,7 @@ $("addCar").onclick = () => {
   refresh();
 };
 $("addPolicy").onclick = () => {
-  state.policies.push({ name: "生命保険", who: "me", death: 3000, incomeProtect: 0, incomeUntil: 60, disabilityBenefit: 0, premium: 0 });
+  state.policies.push({ name: "生命保険", who: "me", death: 3000, incomeProtect: 0, incomeUntil: 60, disabilityBenefit: 0, premium: 0, premiumUntil: 0, inLiving: "" });
   refresh();
 };
 $("addIncome").onclick = () => {
