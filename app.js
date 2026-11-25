@@ -1,7 +1,7 @@
 const DEFAULTS = {
   age: 30, retireAge: 65, pensionAge: 65, endAge: 95,
   income: 450, raise: 1, severance: 1500,
-  pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 600, pension: 180,
+  gender: "", pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 600, pension: 180,
   livingItems: [
     { name: "食費", monthly: 6 }, { name: "水道光熱費", monthly: 2 }, { name: "通信費", monthly: 1 },
     { name: "日用品", monthly: 1 }, { name: "被服・美容", monthly: 1 }, { name: "交際・娯楽", monthly: 3 },
@@ -14,7 +14,7 @@ const DEFAULTS = {
   ],
   debts: [],
   spouse: { enabled: false, age: 30, income: 300, raise: 1, retireAge: 65, pensionAge: 65, severance: 800,
-    pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
+    gender: "", pensionMode: "auto", job: "employee", startAge: 22, kouseiEnd: 0, avgGross: 400, pension: 120 },
   childCost: 80, childFood: 30, childFoodInLiving: false, childAllowance: false, childLeaveCut: 0,
   children: [],
   housing: { type: "rent", rent: 100, parking: 0, buyParking: 0, buyAge: 35, price: 4000, down: 400, closing: 200, rate: 1.5, years: 35, upkeep: 30,
@@ -393,7 +393,7 @@ function renderRisk() {
   if (rv.type === "death") {
     html += `<div class="cards risk-cards">` +
       card("死亡保険金(一時金)", fmt(info.lump) + "万円", "", `葬儀費用 ${fmt(info.funeral)}万円は支出`) +
-      card("遺族年金(年額・目安)", fmt(info.survivorBasic + info.survivorKosei) + "万円", "", `基礎${fmt(info.survivorBasic)}(子が18歳になるまで)+厚生${fmt(info.survivorKosei)}`) +
+      card("遺族年金(年額・目安)", fmt(info.survivorBasic + info.survivorKosei) + "万円", "", `基礎${fmt(info.survivorBasic)}(子が18歳になるまで)+厚生${fmt(info.survivorKosei)}` + (info.widowAmount ? `。ほかに中高齢寡婦加算 年${fmt(info.widowAmount)}(40〜64歳で子がいない間)` : "")) +
       card("収入保障保険(年額)", fmt(info.incomeProtect) + "万円", "", "満了年齢まで") +
       card("団信で消えるローン", fmt(info.loanCleared) + "万円") +
       card("追加で必要な保障額", okAll ? "不足なし" : fmt(rs.shortfall) + "万円", okAll ? "good" : "bad") +
@@ -419,7 +419,7 @@ function renderRisk() {
       : `<tr><td>${whoName(c.w)}が${c.t === "death" ? "死亡" : "就業不能"}</td><td colspan="2" class="hint">配偶者を含めると確認できます</td></tr>`).join("") + `</table></div>`;
   html += `<details class="inner"><summary>年ごとの収支(この場合)</summary><div class="table-wrap"><table class="plain"><tr><th>年齢</th><th>給与</th><th>年金(手取り)</th><th>遺族・障害年金</th><th>保険の給付</th><th>支出合計</th><th>年間収支</th><th>資産(通常)</th><th>資産(この場合)</th></tr>` +
     rows.filter(r => r.age >= info.evtMyAge - 1).map((r, i) => { const b = base.rows.find(x => x.age === r.age); return `<tr><td>${r.age}</td><td>${fmt(r.salary + r.spouseSalary)}</td><td>${fmt(r.pension)}</td><td>${fmt(r.benefit)}</td><td>${fmt(r.insIncome)}</td><td>${fmt(r.outgoTotal)}</td><td class="${r.net < 0 ? "bad" : ""}">${fmt(r.net)}</td><td>${fmt(b.balance)}</td><td class="${r.balance < 0 ? "bad" : ""}">${fmt(r.balance)}</td></tr>`; }).join("") + `</table></div></details>`;
-  html += `<p class="hint">遺族年金・障害年金は、制度にもとづく目安です(中高齢寡婦加算、配偶者の加給年金、年収による制限、再婚などは含みません)。保険金・年金は、税金がかからない前提で入れています。実際の金額は、年金事務所や加入中の保険会社で確認してください。</p>`;
+  html += `<p class="hint">遺族年金・障害年金は、制度にもとづく目安です(配偶者の加給年金、年収による制限、再婚などは含みません。中高齢寡婦加算は、性別を設定した場合だけ含みます)。保険金・年金は、税金がかからない前提で入れています。実際の金額は、年金事務所や加入中の保険会社で確認してください。</p>`;
   out.innerHTML = html;
 }
 

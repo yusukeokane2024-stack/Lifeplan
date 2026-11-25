@@ -181,7 +181,7 @@ function buildReport() {
       if (!r.valid) return `<tr><td>${label}</td><td colspan="5" class="c">配偶者を含めると確認できます</td></tr>`;
       const i = r.info, okAll = r.scn.depletedAge === null;
       const one = t === "death" ? `保険金 ${rpMoney(i.lump)}<br>葬儀 -${rpMoney(i.funeral)}${i.loanCleared > 0 ? `<br>団信で消えるローン ${rpMoney(i.loanCleared)}` : ""}` : "-";
-      const pen = t === "death" ? `${rpMoney(i.survivorBasic + i.survivorKosei)}/年` : `${rpMoney(i.disabilityPension)}/年`;
+      const pen = t === "death" ? `${rpMoney(i.survivorBasic + i.survivorKosei)}/年${i.widowAmount ? `<br>+寡婦加算 ${rpMoney(i.widowAmount)}/年(40〜64歳・子なし)` : ""}` : `${rpMoney(i.disabilityPension)}/年`;
       const ins = t === "death" ? (i.incomeProtect ? `収入保障 ${rpMoney(i.incomeProtect)}/年` : "-") : (i.benefit ? `就業不能保険 ${rpMoney(i.benefit)}/年` : "-");
       return `<tr><td>${label}</td><td class="n">${one}</td><td class="n">${pen}</td><td class="n">${ins}</td>` +
         `<td class="n" style="${okAll ? "color:#0a7a4d" : "color:#c1272d;font-weight:700"}">${okAll ? "不足なし" : "約" + rpMoney(r.shortfall)}</td><td class="c">${okAll ? "尽きない" : r.scn.depletedAge + "歳"}</td></tr>`;
@@ -196,7 +196,7 @@ function buildReport() {
           <li><b>死亡</b>: 亡くなった方の給与・年金・退職金が止まり、生活費は${S.protection.livingRatio}%になります。死亡保険金・収入保障保険・遺族年金(遺族基礎年金+遺族厚生年金)が入り、葬儀費用${rpMoney(S.protection.funeral)}がかかります。</li>
           <li><b>団信</b>: ${S.protection.dankin ? (pairLoan ? "加入(ペアローン)。本人名義分は本人が、配偶者名義分は配偶者が亡くなったときに、その人の分の残りが完済されます。もう一方の分は返済が続きます。住宅を買う前(ローンがまだない時点)に亡くなる場合は、団信は効きません。" : `加入(債務者: ${nm(S.protection.loanHolder)})。債務者が亡くなると、住宅ローンの残りが完済されます。`) : "加入していない前提です。ローンは遺族が返済を続けます。"}</li>
           <li><b>就業不能</b>: 収入が${S.protection.disabilityLossRate}%減り、${S.protection.disabilityYears > 0 ? S.protection.disabilityYears + "年間" : "退職年齢まで"}続くものとします。追加の医療費(月${S.protection.disabilityMedical}万円)がかかり、就業不能保険${S.protection.disabilityPension ? "と障害年金(2級の目安)" : ""}が入ります。</li>
-          <li>遺族年金・障害年金は、制度にもとづく目安です。中高齢寡婦加算、配偶者の加給年金、年収による制限、再婚などは含みません。保険金・年金は、税金がかからない前提です。</li>
+          <li>遺族年金・障害年金は、制度にもとづく目安です。配偶者の加給年金、年収による制限、再婚などは含みません(中高齢寡婦加算は、性別を設定した場合に含みます)。保険金・年金は、税金がかからない前提です。</li>
         </ul></div></div>`);
     add(pg);
   }

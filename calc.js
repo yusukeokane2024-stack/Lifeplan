@@ -215,7 +215,9 @@
           const months = workingAtEvent ? Math.max(300, koseiMonths) : koseiMonths;
           let koseiSurv = months >= 300 ? koseiBase * months * 0.75 : 0;              // 遺族厚生年金(報酬比例の3/4)
           if (sAge >= Sv.pensionAge) koseiSurv = Math.max(0, koseiSurv - partsOf(Sv).kosei); // 自分の老齢厚生年金が出る年齢からは、その分を差し引く
-          benefit += basicSurv + koseiSurv;
+          // 中高齢寡婦加算: 夫を亡くした妻が40〜64歳で、遺族基礎年金が出ていない間(遺族厚生年金が出ている場合)。遺族基礎年金の3/4
+          const widowAdd = D.gender === "male" && Sv.gender === "female" && sAge >= 40 && sAge < 65 && basicSurv === 0 && koseiSurv > 0 ? BASIC_FULL * 0.75 : 0;
+          benefit += basicSurv + koseiSurv + widowAdd;
           for (const x of mine) if (x.incomeProtect > 0 && dAge <= (x.incomeUntil || 0)) insIncome += x.incomeProtect * 12; // 収入保障保険
           if (evtYear) {
             riskCash -= mine.reduce((t, x) => t + (x.death || 0), 0);                 // 死亡保険金(一時金)
@@ -223,7 +225,7 @@
             riskNames.push("万が一(" + (sc.who === "me" ? "本人" : "配偶者") + "死亡)");
             dankinNow = !!prot.dankin;                                                // 団信: 亡くなった債務者のローンの残りが消える
             scenarioInfo = { type: "death", who: sc.who, evtMyAge, lump: mine.reduce((t, x) => t + (x.death || 0), 0), funeral: prot.funeral,
-              survivorBasic: basicSurv, survivorKosei: koseiSurv, incomeProtect: mine.reduce((t, x) => t + (x.incomeProtect > 0 && dAge <= (x.incomeUntil || 0) ? x.incomeProtect * 12 : 0), 0),
+              survivorBasic: basicSurv, survivorKosei: koseiSurv, widowAdd, widowAmount: D.gender === "male" && Sv.gender === "female" ? BASIC_FULL * 0.75 : 0, incomeProtect: mine.reduce((t, x) => t + (x.incomeProtect > 0 && dAge <= (x.incomeUntil || 0) ? x.incomeProtect * 12 : 0), 0),
               loanCleared: 0, livingRatio: prot.livingRatio };
           }
         } else { // 就業不能
